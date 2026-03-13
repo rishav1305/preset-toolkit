@@ -9,6 +9,7 @@ dependencies = [
     "PyYAML>=6.0",
     "Pillow>=10.0",
     "httpx>=0.24",
+    "posthog>=3.0",
 ]
 
 [project.optional-dependencies]

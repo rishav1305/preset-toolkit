@@ -42,3 +42,8 @@ validation:
 
 user:
   email: "{{user_email}}"
+
+telemetry:
+  enabled: true          # Opt-in: set to false to disable anonymous telemetry
+  anonymous_id: ""       # Auto-generated on first run (UUIDv4, NOT your email)
+  debug: false           # Set to true for verbose log output
