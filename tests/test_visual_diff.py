@@ -64,3 +64,19 @@ def test_custom_color_tolerance(tmp_path):
     # Tolerance=60 should pass it.
     result_loose = compare_images(a, b, color_tolerance=60)
     assert result_loose.diff_ratio == 0.0
+
+
+def test_large_image_comparison_completes_in_time(tmp_path):
+    """Visual diff of 1920x1080 images should complete in <5 seconds."""
+    import time
+    img_a = Image.new("RGB", (1920, 1080), (200, 200, 200))
+    img_b = Image.new("RGB", (1920, 1080), (200, 200, 201))
+    a_path = tmp_path / "a.png"
+    b_path = tmp_path / "b.png"
+    img_a.save(a_path)
+    img_b.save(b_path)
+    start = time.monotonic()
+    result = compare_images(a_path, b_path)
+    elapsed = time.monotonic() - start
+    assert elapsed < 5.0, f"Took {elapsed:.1f}s — too slow"
+    assert result.passed is True
