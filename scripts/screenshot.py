@@ -54,7 +54,8 @@ async def capture_dashboard(
             page = await context.new_page()
 
             try:
-                await page.goto(dashboard_url, wait_until="networkidle", timeout=60000)
+                nav_timeout = config.get("screenshots.navigation_timeout", 60) * 1000
+                await page.goto(dashboard_url, wait_until="networkidle", timeout=nav_timeout)
                 await page.wait_for_timeout(wait_ms)
             except Exception as e:
                 log.error("Dashboard navigation failed: %s", e)

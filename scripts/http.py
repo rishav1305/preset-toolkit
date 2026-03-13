@@ -1,4 +1,5 @@
-"""HTTP retry wrapper with exponential backoff."""
+"""HTTP retry wrapper with exponential backoff and jitter."""
+import random
 import time
 from typing import Any, Optional
 
@@ -35,7 +36,7 @@ def resilient_request(
         except (httpx.ConnectError, httpx.TimeoutException) as e:
             last_exc = e
             if attempt < retries:
-                wait = backoff_base * (2 ** (attempt - 1))
+                wait = backoff_base * (2 ** (attempt - 1)) * (0.5 + random.random())
                 log.warning(
                     "%s %s failed (attempt %d/%d): %s. Retrying in %.1fs...",
                     method, url, attempt, retries, type(e).__name__, wait,

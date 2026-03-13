@@ -10,6 +10,10 @@ except ImportError:
     ensure_package("yaml")
     import yaml
 
+from scripts.logger import get_logger
+
+log = get_logger("config")
+
 
 class ConfigNotFoundError(FileNotFoundError):
     pass
@@ -31,9 +35,14 @@ class ToolkitConfig:
         path = Path(path)
         if not path.exists():
             raise ConfigNotFoundError(f"Config not found: {path}")
-        with open(path) as f:
-            data = yaml.safe_load(f)
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f)
+        except (OSError, yaml.YAMLError) as e:
+            log.warning("Could not read config %s: %s", path, e)
+            data = {}
         if not isinstance(data, dict):
+            log.warning("Config %s is not a YAML mapping — using empty config", path)
             data = {}
         return cls(data, path)
 
@@ -102,6 +111,7 @@ class ToolkitConfig:
         }
         for key, value in required.items():
             if not value:
+                log.error("Validation failed: '%s' is missing or empty", key)
                 raise ConfigValidationError(
                     f"Required config field '{key}' is missing or empty"
                 )

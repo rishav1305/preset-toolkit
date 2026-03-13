@@ -1,4 +1,5 @@
 """Sync orchestrator: pull + dedup + validate + push + CSS + verify."""
+import random
 import re
 import subprocess
 import sys
@@ -57,14 +58,21 @@ def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> su
         )
     last_result = None
     for attempt in range(1, retries + 1):
-        last_result = subprocess.run(
-            ["sup"] + args,
-            capture_output=True, text=True, timeout=120,
-        )
+        try:
+            last_result = subprocess.run(
+                ["sup"] + args,
+                capture_output=True, text=True, timeout=120,
+            )
+        except subprocess.TimeoutExpired:
+            log.warning("sup %s timed out (attempt %d/%d)", " ".join(args), attempt, retries)
+            last_result = subprocess.CompletedProcess(
+                args=["sup"] + args, returncode=1,
+                stdout="", stderr="Command timed out after 120s",
+            )
         if last_result.returncode == 0:
             return last_result
         if attempt < retries:
-            wait = backoff_base * (2 ** (attempt - 1))
+            wait = backoff_base * (2 ** (attempt - 1)) * (0.5 + random.random())
             log.warning(
                 "sup %s failed (attempt %d/%d), retrying in %.1fs...",
                 " ".join(args), attempt, retries, wait,

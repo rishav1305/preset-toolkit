@@ -124,4 +124,14 @@ class OwnershipMap:
                         f"{sd.advisory} Owners: {', '.join(other_owners)}"
                     )
 
+        if result.has_warnings or result.has_shared_dataset_warnings:
+            try:
+                from scripts.telemetry import get_telemetry
+                get_telemetry().track("ownership_warning", {
+                    "section_warnings": len(result.warnings),
+                    "shared_dataset_warnings": len(result.shared_dataset_warnings),
+                })
+            except Exception:
+                pass
+
         return result

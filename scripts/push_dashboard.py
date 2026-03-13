@@ -83,9 +83,10 @@ def _get_auth_headers(config: ToolkitConfig) -> dict:
     token, secret = _get_credentials(config)
     if not token:
         return {}
-    # Warn on non-HTTPS
+    # Block non-HTTPS — credentials must not be sent in plaintext
     if config.workspace_url and not config.workspace_url.startswith("https://"):
-        log.warning("workspace_url uses HTTP, not HTTPS — credentials sent in plaintext")
+        log.error("workspace_url uses HTTP — refusing to send credentials over plaintext. Use HTTPS.")
+        return {}
     # Exchange API token for JWT via Preset's auth endpoint
     login_path = config.get("api.login_path", "/api/v1/security/login")
     auth_url = f"{config.workspace_url.rstrip('/')}{login_path}"

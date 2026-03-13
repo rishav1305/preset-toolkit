@@ -58,6 +58,15 @@ def apply_dedup(directory: Path, dry_run: bool = False) -> int:
     """Remove duplicate YAML files. Returns count of files removed."""
     dupes = find_duplicates(directory)
     removed = 0
+    try:
+        from scripts.telemetry import get_telemetry
+        get_telemetry().track("dedup_start", {
+            "directory": directory.name,
+            "duplicate_uuids": len(dupes),
+            "dry_run": dry_run,
+        })
+    except Exception:
+        pass
     for uuid, files in sorted(dupes.items()):
         keeper = pick_keeper(files)
         for _, f in files:
@@ -66,7 +75,11 @@ def apply_dedup(directory: Path, dry_run: bool = False) -> int:
             if dry_run:
                 log.info("Would remove: %s", f.name)
             else:
-                f.unlink()
-                log.info("Removed duplicate: %s", f.name)
+                try:
+                    f.unlink()
+                    log.info("Removed duplicate: %s", f.name)
+                except OSError as e:
+                    log.warning("Could not remove %s: %s", f.name, e)
+                    continue
             removed += 1
     return removed
