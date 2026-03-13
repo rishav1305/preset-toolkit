@@ -18,22 +18,24 @@ def test_run_sup_success():
 def test_run_sup_retries_on_failure():
     with patch("scripts.sync._ensure_sup", return_value=True):
         with patch("subprocess.run") as mock_run:
-            fail = MagicMock(returncode=1, stdout="", stderr="JWT error")
-            success = MagicMock(returncode=0, stdout="ok", stderr="")
-            mock_run.side_effect = [fail, success]
-            result = _run_sup(["sync", "validate", "test"], retries=3)
-            assert result.returncode == 0
-            assert mock_run.call_count == 2
+            with patch("scripts.sync.time.sleep"):  # Don't actually sleep
+                fail = MagicMock(returncode=1, stdout="", stderr="JWT error")
+                success = MagicMock(returncode=0, stdout="ok", stderr="")
+                mock_run.side_effect = [fail, success]
+                result = _run_sup(["sync", "validate", "test"], retries=3)
+                assert result.returncode == 0
+                assert mock_run.call_count == 2
 
 
 def test_run_sup_exhausts_retries():
     with patch("scripts.sync._ensure_sup", return_value=True):
         with patch("subprocess.run") as mock_run:
-            fail = MagicMock(returncode=1, stdout="", stderr="error")
-            mock_run.return_value = fail
-            result = _run_sup(["sync", "validate", "test"], retries=2)
-            assert result.returncode == 1
-            assert mock_run.call_count == 2
+            with patch("scripts.sync.time.sleep"):  # Don't actually sleep
+                fail = MagicMock(returncode=1, stdout="", stderr="error")
+                mock_run.return_value = fail
+                result = _run_sup(["sync", "validate", "test"], retries=2)
+                assert result.returncode == 1
+                assert mock_run.call_count == 2
 
 
 def test_run_sup_auto_install_failure():

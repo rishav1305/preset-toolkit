@@ -1,6 +1,7 @@
 """Sync orchestrator: pull + dedup + validate + push + CSS + verify."""
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -34,7 +35,7 @@ def _ensure_sup() -> bool:
     return ensure_sup_cli()
 
 
-def _run_sup(args: List[str], retries: int = 3) -> subprocess.CompletedProcess:
+def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> subprocess.CompletedProcess:
     """Run a sup CLI command with retries. Auto-installs sup if missing."""
     if not _ensure_sup():
         return subprocess.CompletedProcess(
@@ -50,7 +51,12 @@ def _run_sup(args: List[str], retries: int = 3) -> subprocess.CompletedProcess:
         if last_result.returncode == 0:
             return last_result
         if attempt < retries:
-            log.warning("sup %s failed (attempt %d/%d), retrying...", " ".join(args), attempt, retries)
+            wait = backoff_base * (2 ** (attempt - 1))
+            log.warning(
+                "sup %s failed (attempt %d/%d), retrying in %.1fs...",
+                " ".join(args), attempt, retries, wait,
+            )
+            time.sleep(wait)
     return last_result
 
 
