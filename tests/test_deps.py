@@ -1,4 +1,5 @@
 """Tests for dependency checker module."""
+import subprocess
 from unittest.mock import patch, MagicMock
 from scripts.deps import ensure_package, ensure_sup_cli, _is_importable, _pip_name
 
@@ -36,3 +37,16 @@ def test_ensure_sup_cli_installs_when_missing():
     with patch("subprocess.run", side_effect=[fail, success]):
         with patch("scripts.deps._pip_install", return_value=True):
             assert ensure_sup_cli() is True
+
+
+def test_pip_install_timeout_returns_false():
+    """_pip_install should return False on subprocess timeout, not crash."""
+    from scripts.deps import _pip_install
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="pip", timeout=120)):
+        assert _pip_install("fake_pkg") is False
+
+
+def test_ensure_sup_cli_timeout_returns_false():
+    """ensure_sup_cli should return False on subprocess timeout."""
+    with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="sup", timeout=30)):
+        assert ensure_sup_cli() is False

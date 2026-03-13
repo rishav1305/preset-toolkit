@@ -25,10 +25,14 @@ OPTIONAL_DEPS = {
 def _pip_install(package: str) -> bool:
     """Install a package via pip. Returns True on success."""
     log.info("Installing %s...", package)
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", package],
-        capture_output=True, text=True, timeout=120,
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", package],
+            capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        log.warning("Timed out installing %s", package)
+        return False
     if result.returncode == 0:
         log.info("Installed %s successfully.", package)
         return True
@@ -73,18 +77,24 @@ def ensure_core() -> list:
 
 def ensure_sup_cli() -> bool:
     """Check if preset-cli (sup) is installed; install if not."""
-    result = subprocess.run(
-        ["sup", "version"], capture_output=True, text=True, timeout=30,
-    )
-    if result.returncode == 0:
-        return True
+    try:
+        result = subprocess.run(
+            ["sup", "version"], capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0:
+            return True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
     log.info("preset-cli (sup) not found.")
     if _pip_install("preset-cli"):
         # Verify it works after install
-        verify = subprocess.run(
-            ["sup", "version"], capture_output=True, text=True, timeout=30,
-        )
-        return verify.returncode == 0
+        try:
+            verify = subprocess.run(
+                ["sup", "version"], capture_output=True, text=True, timeout=30,
+            )
+            return verify.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
     return False
 
 
@@ -93,17 +103,25 @@ def ensure_playwright() -> bool:
     if not ensure_package("playwright"):
         return False
     # Check if chromium is installed
-    result = subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "--dry-run", "chromium"],
-        capture_output=True, text=True, timeout=30,
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "--dry-run", "chromium"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        log.warning("Timed out checking Playwright status")
+        return False
     # If dry-run shows nothing to install, we're good. Otherwise install.
     if "chromium" in result.stdout or result.returncode != 0:
         log.info("Installing Playwright Chromium browser...")
-        install = subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium"],
-            capture_output=True, text=True, timeout=300,
-        )
+        try:
+            install = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True, text=True, timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            log.warning("Timed out installing Chromium")
+            return False
         if install.returncode != 0:
             log.warning("Failed to install Chromium: %s", install.stderr.strip())
             return False
@@ -118,9 +136,12 @@ def check_all(include_optional: bool = False) -> dict:
     for dep in CORE_DEPS:
         status["core"][_pip_name(dep)] = _is_importable(dep)
 
-    sup_ok = subprocess.run(
-        ["sup", "version"], capture_output=True, text=True, timeout=10,
-    ).returncode == 0
+    try:
+        sup_ok = subprocess.run(
+            ["sup", "version"], capture_output=True, text=True, timeout=10,
+        ).returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        sup_ok = False
     status["tools"]["preset-cli"] = sup_ok
 
     if include_optional:
