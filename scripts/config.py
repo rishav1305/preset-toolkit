@@ -33,6 +33,8 @@ class ToolkitConfig:
             raise ConfigNotFoundError(f"Config not found: {path}")
         with open(path) as f:
             data = yaml.safe_load(f)
+        if not isinstance(data, dict):
+            data = {}
         return cls(data, path)
 
     @classmethod

@@ -68,6 +68,22 @@ def test_config_validates_dashboard_id_nonzero(tmp_path):
         cfg.validate()
 
 
+def test_load_null_yaml(tmp_path):
+    """Config file containing only 'null' should not crash."""
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("null\n")
+    cfg = ToolkitConfig.load(config_path)
+    assert cfg.get("workspace.url") is None
+
+
+def test_load_list_yaml(tmp_path):
+    """Config file containing a YAML list should not crash."""
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("- item1\n- item2\n")
+    cfg = ToolkitConfig.load(config_path)
+    assert cfg.get("workspace.url") is None
+
+
 def test_discover_walks_up(tmp_path):
     toolkit_dir = tmp_path / ".preset-toolkit"
     toolkit_dir.mkdir()
