@@ -88,14 +88,25 @@ echo "PRESET_API_SECRET=${PRESET_API_SECRET:+SET}"
     PRESET_API_SECRET=your-secret
   ```
 
-## Step 6: Verify sup CLI
+## Step 6: Install Dependencies & Verify sup CLI
 
-```bash
-sup version 2>/dev/null || echo "SUP_NOT_INSTALLED"
+Run the dependency checker to auto-install everything:
+
+```python
+from scripts.deps import ensure_core, ensure_sup_cli
+
+# Install core Python packages (PyYAML, Pillow, httpx) if missing
+failures = ensure_core()
+if failures:
+    print(f"WARNING: Failed to install: {', '.join(failures)}")
+
+# Install preset-cli (sup) if missing
+if not ensure_sup_cli():
+    print("WARNING: Could not install preset-cli. Install manually: pip install preset-cli")
 ```
 
-- If installed: Print version.
-- If not installed: Tell user `pip install preset-cli` and wait for them to install it.
+- If all installs succeed: Print versions and continue.
+- If any install fails: Print the error, but continue setup. The user can resolve later.
 
 ## Step 7: Check for Existing Sync Folder
 

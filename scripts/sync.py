@@ -20,8 +20,25 @@ class SyncResult:
     error: str = ""
 
 
+def _ensure_sup() -> bool:
+    """Ensure sup CLI is available, installing preset-cli if needed."""
+    try:
+        r = subprocess.run(["sup", "version"], capture_output=True, text=True, timeout=10)
+        if r.returncode == 0:
+            return True
+    except FileNotFoundError:
+        pass
+    from scripts.deps import ensure_sup_cli
+    return ensure_sup_cli()
+
+
 def _run_sup(args: List[str], retries: int = 3) -> subprocess.CompletedProcess:
-    """Run a sup CLI command with retries."""
+    """Run a sup CLI command with retries. Auto-installs sup if missing."""
+    if not _ensure_sup():
+        return subprocess.CompletedProcess(
+            args=["sup"] + args, returncode=1,
+            stdout="", stderr="preset-cli (sup) not installed and auto-install failed.",
+        )
     last_result = None
     for attempt in range(1, retries + 1):
         last_result = subprocess.run(

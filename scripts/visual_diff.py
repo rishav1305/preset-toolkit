@@ -3,7 +3,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    from scripts.deps import ensure_package
+    ensure_package("PIL")
+    from PIL import Image
 
 
 @dataclass

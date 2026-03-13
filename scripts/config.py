@@ -3,7 +3,12 @@ import functools
 from pathlib import Path
 from typing import Any, Optional
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    from scripts.deps import ensure_package
+    ensure_package("yaml")
+    import yaml
 
 
 class ConfigNotFoundError(FileNotFoundError):

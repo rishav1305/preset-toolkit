@@ -5,7 +5,12 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    from scripts.deps import ensure_package
+    ensure_package("yaml")
+    import yaml
 
 _ID_SUFFIX_RE = re.compile(r"_\d+\.yaml$")
 

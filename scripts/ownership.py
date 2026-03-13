@@ -3,7 +3,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    from scripts.deps import ensure_package
+    ensure_package("yaml")
+    import yaml
 
 
 @dataclass

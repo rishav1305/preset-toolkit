@@ -21,7 +21,12 @@ async def capture_dashboard(
     headless: bool = True,
 ) -> ScreenshotResult:
     """Capture full-page and per-section screenshots of a Preset dashboard."""
-    from playwright.async_api import async_playwright
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        from scripts.deps import ensure_playwright
+        ensure_playwright()
+        from playwright.async_api import async_playwright
 
     output_dir.mkdir(parents=True, exist_ok=True)
     result = ScreenshotResult()

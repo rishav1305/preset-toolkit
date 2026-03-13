@@ -4,8 +4,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-import httpx
-import yaml
+try:
+    import httpx
+except ImportError:
+    from scripts.deps import ensure_package
+    ensure_package("httpx")
+    import httpx
+
+try:
+    import yaml
+except ImportError:
+    from scripts.deps import ensure_package as _ep
+    _ep("yaml")
+    import yaml
 
 from scripts.config import ToolkitConfig
 

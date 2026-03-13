@@ -22,6 +22,12 @@ CONFIG_PATH=$(find_config) || exit 0  # Not a preset-toolkit project — silent 
 
 PROJECT_ROOT="$(dirname "$(dirname "$CONFIG_PATH")")"
 
+# Ensure PyYAML is available for config parsing
+python3 -c "import yaml" 2>/dev/null || {
+    echo "[preset-toolkit] Installing PyYAML..."
+    python3 -m pip install PyYAML -q 2>/dev/null || true
+}
+
 # Parse config values using Python (handles YAML safely)
 read_config() {
     python3 -c "
