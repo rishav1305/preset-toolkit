@@ -1,5 +1,6 @@
 """Push dashboard CSS + position_json via Preset REST API."""
 import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -19,6 +20,7 @@ except ImportError:
     import yaml
 
 from scripts.config import ToolkitConfig
+from scripts.http import resilient_request
 from scripts.logger import get_logger
 
 log = get_logger("push_dashboard")
@@ -49,6 +51,13 @@ def _get_credentials(config: ToolkitConfig) -> tuple:
     if not token and config.get("auth.method") == "file":
         keys_path = Path(".preset-toolkit/.secrets/keys.txt")
         if keys_path.exists():
+            # Check file permissions
+            mode = keys_path.stat().st_mode
+            if mode & (stat.S_IRGRP | stat.S_IROTH):
+                log.warning(
+                    "keys.txt has loose permissions (%o). Run: chmod 600 %s",
+                    stat.S_IMODE(mode), keys_path,
+                )
             for line in keys_path.read_text().splitlines():
                 if line.startswith("PRESET_API_TOKEN="):
                     token = line.split("=", 1)[1].strip().strip("'\"")
@@ -64,12 +73,11 @@ def _get_auth_headers(config: ToolkitConfig) -> dict:
         return {}
     # Exchange API token for JWT via Preset's auth endpoint
     auth_url = f"{config.workspace_url.rstrip('/')}/api/v1/security/login"
-    resp = httpx.post(auth_url, json={
+    resp = resilient_request("POST", auth_url, json={
         "username": token,
         "password": secret,
         "provider": "db",
-    }, timeout=30)
-    resp.raise_for_status()
+    })
     jwt = resp.json().get("access_token", "")
     return {"Authorization": f"Bearer {jwt}"}
 
@@ -88,8 +96,7 @@ def fetch_dashboard(config: ToolkitConfig) -> dict:
     """GET /api/v1/dashboard/{id}"""
     url = f"{config.workspace_url.rstrip('/')}/api/v1/dashboard/{config.dashboard_id}"
     headers = _get_auth_headers(config)
-    resp = httpx.get(url, headers=headers, timeout=30)
-    resp.raise_for_status()
+    resp = resilient_request("GET", url, headers=headers)
     return resp.json().get("result", {})
 
 
@@ -116,7 +123,7 @@ def push_css_and_position(
     # Fetch CSRF token
     csrf_url = f"{config.workspace_url.rstrip('/')}/api/v1/security/csrf_token/"
     try:
-        csrf_resp = httpx.get(csrf_url, headers=headers, timeout=30)
+        csrf_resp = resilient_request("GET", csrf_url, headers=headers, retries=1)
         csrf_token = csrf_resp.json().get("result", "")
         headers["X-CSRFToken"] = csrf_token
     except (httpx.HTTPError, KeyError) as e:
@@ -127,8 +134,9 @@ def push_css_and_position(
         payload["position_json"] = position_json
 
     try:
-        resp = httpx.put(url, headers=headers, json=payload, timeout=30)
-        resp.raise_for_status()
+        resp = resilient_request("PUT", url, headers=headers, json=payload)
         return PushResult(success=True, css_changed=True, position_changed=position_json is not None)
     except httpx.HTTPStatusError as e:
-        return PushResult(success=False, error=f"HTTP {e.response.status_code}: {e.response.text}")
+        return PushResult(success=False, error=f"HTTP {e.response.status_code}")
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        return PushResult(success=False, error=f"{type(e).__name__}: {e}")
