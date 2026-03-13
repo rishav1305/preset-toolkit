@@ -48,3 +48,21 @@ def test_check_multiple_sections():
     result = om.check("alice@company.com", changed_charts=[2084, 2085, 2088])
     assert result.has_warnings is True
     assert len(result.warnings) == 2  # 2085 and 2088 are both revenue
+
+
+def test_ownership_load_corrupt_yaml(tmp_path):
+    """Corrupt YAML should return empty OwnershipMap, not crash."""
+    corrupt = tmp_path / "ownership.yaml"
+    corrupt.write_text(": : invalid yaml [[[")
+    om = OwnershipMap.load(corrupt)
+    assert len(om.sections) == 0
+    assert len(om.shared_datasets) == 0
+
+
+def test_ownership_load_null_yaml(tmp_path):
+    """Empty/null YAML should return empty OwnershipMap."""
+    empty = tmp_path / "ownership.yaml"
+    empty.write_text("")
+    om = OwnershipMap.load(empty)
+    assert len(om.sections) == 0
+    assert len(om.shared_datasets) == 0

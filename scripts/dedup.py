@@ -36,7 +36,7 @@ def find_duplicates(directory: Path) -> Dict[str, List[Tuple[float, Path]]]:
                 continue
             uuid_map[uuid].append((os.path.getmtime(f), f))
         except (yaml.YAMLError, OSError) as e:
-            log.debug("Skipping %s: %s", f.name, e)
+            log.warning("Skipping %s: %s", f.name, e)
             continue
     return {k: v for k, v in uuid_map.items() if len(v) > 1}
 

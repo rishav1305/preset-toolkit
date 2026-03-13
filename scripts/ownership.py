@@ -10,6 +10,10 @@ except ImportError:
     ensure_package("yaml")
     import yaml
 
+from scripts.logger import get_logger
+
+log = get_logger("ownership")
+
 
 @dataclass
 class Section:
@@ -49,13 +53,18 @@ class OwnershipMap:
         for name, sec in sections.items():
             for cid in sec.charts:
                 self._chart_index[cid] = name
+        self._shared_by_name: Dict[str, SharedDataset] = {sd.name: sd for sd in shared}
 
     @classmethod
     def load(cls, path: Path) -> "OwnershipMap":
-        with open(path) as f:
-            data = yaml.safe_load(f)
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f)
+        except (OSError, yaml.YAMLError) as e:
+            log.warning("Could not read ownership file %s: %s", path, e)
+            return cls({}, [])
         if not isinstance(data, dict):
-            data = {}
+            return cls({}, [])
 
         sections = {}
         for name, sec_data in data.get("sections", {}).items():
@@ -69,8 +78,12 @@ class OwnershipMap:
 
         shared = []
         for sd in data.get("shared_datasets", []):
+            name = sd.get("name", "")
+            if not name:
+                log.debug("Skipping shared_dataset entry without name")
+                continue
             shared.append(SharedDataset(
-                name=sd["name"],
+                name=name,
                 owners=sd.get("owners", []),
                 advisory=sd.get("advisory", ""),
             ))
@@ -102,13 +115,13 @@ class OwnershipMap:
                 )
 
         for ds_name in (changed_datasets or []):
-            for sd in self.shared_datasets:
-                if sd.name == ds_name:
-                    other_owners = [o for o in sd.owners if o != user_email]
-                    if other_owners:
-                        result.shared_dataset_warnings.append(
-                            f"Dataset '{ds_name}' is shared. "
-                            f"{sd.advisory} Owners: {', '.join(other_owners)}"
-                        )
+            sd = self._shared_by_name.get(ds_name)
+            if sd:
+                other_owners = [o for o in sd.owners if o != user_email]
+                if other_owners:
+                    result.shared_dataset_warnings.append(
+                        f"Dataset '{ds_name}' is shared. "
+                        f"{sd.advisory} Owners: {', '.join(other_owners)}"
+                    )
 
         return result
