@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from scripts.config import ToolkitConfig, ConfigNotFoundError
+from scripts.config import ToolkitConfig, ConfigNotFoundError, ConfigValidationError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -46,6 +46,26 @@ def test_get_missing_key_returns_default():
     cfg = ToolkitConfig.load(FIXTURES / "sample_config.yaml")
     assert cfg.get("nonexistent.key") is None
     assert cfg.get("nonexistent.key", "fallback") == "fallback"
+
+
+def test_config_validates_required_fields(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("version: 1\n")
+    cfg = ToolkitConfig.load(config_path)
+    with pytest.raises(ConfigValidationError, match="workspace.url"):
+        cfg.validate()
+
+
+def test_config_validates_dashboard_id_nonzero(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "version: 1\n"
+        "workspace:\n  url: 'https://test.preset.io'\n"
+        "dashboard:\n  id: 0\n"
+    )
+    cfg = ToolkitConfig.load(config_path)
+    with pytest.raises(ConfigValidationError, match="dashboard.id"):
+        cfg.validate()
 
 
 def test_discover_walks_up(tmp_path):

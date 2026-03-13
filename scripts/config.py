@@ -15,6 +15,10 @@ class ConfigNotFoundError(FileNotFoundError):
     pass
 
 
+class ConfigValidationError(ValueError):
+    pass
+
+
 class ToolkitConfig:
     """Reads and provides typed access to .preset-toolkit/config.yaml"""
 
@@ -87,3 +91,15 @@ class ToolkitConfig:
     @property
     def project_root(self) -> Path:
         return self._path.parent.parent
+
+    def validate(self) -> None:
+        """Validate that required config fields are present and non-empty."""
+        required = {
+            "workspace.url": self.workspace_url,
+            "dashboard.id": self.dashboard_id,
+        }
+        for key, value in required.items():
+            if not value:
+                raise ConfigValidationError(
+                    f"Required config field '{key}' is missing or empty"
+                )
