@@ -1,0 +1,31 @@
+version: 1
+workspace:
+  url: "https://test.us2a.app.preset.io"
+  id: "12345"
+dashboard:
+  id: 99
+  name: "Test Dashboard"
+  sync_folder: "test-sync"
+auth:
+  method: "env"
+screenshots:
+  browser: "chromium"
+  wait_seconds: 15
+  full_page: true
+  sections: true
+  mask_selectors:
+    - ".header-with-actions"
+visual_regression:
+  threshold: 0.01
+  baseline_dir: ".preset-toolkit/baselines"
+css:
+  max_length: 30000
+  push_via_api: true
+validation:
+  markers_file: ".preset-toolkit/markers.txt"
+  smoke_file: ".preset-toolkit/smoke.json"
+  fingerprint_file: ".preset-toolkit/.last-push-fingerprint"
+  require_markers_before_push: true
+  verify_after_push: true
+user:
+  email: "test@company.com"

@@ -1,0 +1,26 @@
+[project]
+name = "preset-toolkit"
+version = "0.1.0"
+description = "Dashboard management toolkit for Preset/Superset"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "Rishav Chatterjee", email = "rishav.chatterjee@weather.com"}]
+dependencies = [
+    "PyYAML>=6.0",
+    "Pillow>=10.0",
+    "httpx>=0.24",
+]
+
+[project.optional-dependencies]
+screenshots = ["playwright>=1.40"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["scripts*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

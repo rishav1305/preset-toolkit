@@ -1,0 +1,11 @@
+# preset-toolkit
+.preset-toolkit/.secrets/
+.preset-toolkit/.last-push-fingerprint
+screenshots/
+*.pyc
+__pycache__/
+.venv/
+.env
+node_modules/
+.DS_Store
+.pytest_cache/

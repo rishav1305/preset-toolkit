@@ -1,0 +1,27 @@
+# {{dashboard_name}} — preset-toolkit project
+
+## Dashboard
+- **Name:** {{dashboard_name}}
+- **ID:** {{dashboard_id}}
+- **Workspace:** {{workspace_url}}
+- **Sync folder:** sync/
+
+## How to Work
+
+Type `/preset` and describe what you want to do in plain English.
+
+Common tasks:
+- "Pull latest changes" — fetches current state from Preset
+- "Push my changes" — validates and pushes to Preset
+- "Take a screenshot" — captures the dashboard for review
+- "Check health" — validates markers and content integrity
+
+## Rules
+- Never ask technical questions — auto-resolve using config
+- Only ask about business intent, data correctness, and visual specifics
+- Check ownership before pushing (warns if editing someone else's section)
+- Always validate markers before push (blocks if content regressed)
+- Capture screenshots after every push for visual regression tracking
+
+## Ownership
+See `.preset-toolkit/ownership.yaml` for section assignments.

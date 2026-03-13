@@ -1,0 +1,13 @@
+{
+  "name": "preset-toolkit",
+  "description": "Dashboard management toolkit for Preset/Superset — sync, validate, push, screenshot, visual regression, ownership",
+  "version": "0.1.0",
+  "author": {
+    "name": "Rishav Chatterjee",
+    "email": "rishav.chatterjee@weather.com"
+  },
+  "homepage": "https://github.com/rishavchatterjee/preset-toolkit",
+  "repository": "https://github.com/rishavchatterjee/preset-toolkit",
+  "license": "MIT",
+  "keywords": ["preset", "superset", "dashboard", "sync", "visual-regression", "ownership"]
+}

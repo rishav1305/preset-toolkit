@@ -1,0 +1,3 @@
+uuid: "dataset-uuid-1234"
+table_name: "test_table"
+sql: "SELECT 'Revenue - Ads | Subs Sales' AS title, 'wcbm-section__hdr' AS class, weekly_total_revenue_curr FROM source"

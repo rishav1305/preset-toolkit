@@ -1,0 +1,12 @@
+# Required content markers — one per line.
+# Push is blocked if any marker is missing from the dataset SQL.
+# Comments (#) and blank lines are ignored.
+#
+# Add key labels, section headers, and formula indicators that
+# MUST be present in the dashboard content. This prevents
+# accidentally pushing stale or regressed versions.
+#
+# Examples:
+# Revenue - Ads | Subs Sales
+# wcbm-section__hdr">Activation</div>
+# weekly_total_revenue_curr

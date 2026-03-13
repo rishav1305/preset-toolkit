@@ -1,0 +1,25 @@
+# Section ownership — advisory warnings when editing outside your sections.
+# Map dashboard sections to owners. The plugin warns (never blocks) when
+# someone edits a section they don't own.
+#
+# Charts are identified by their Preset chart ID (visible in the URL or YAML).
+# Run /preset status to see all chart IDs in this dashboard.
+
+sections:
+  # Example:
+  # audience:
+  #   owner: "alice@company.com"
+  #   charts: [2084]
+  #   datasets: ["My_Dataset"]
+  #   description: "WAU, Avg DAU tiles"
+
+  all:
+    owner: null           # null = anyone can edit (no warnings)
+    charts: []            # Fill in chart IDs after first pull
+    description: "All sections (unassigned)"
+
+shared_datasets: []
+  # Example:
+  # - name: "My_Dataset"
+  #   owners: ["alice@company.com", "bob@company.com"]
+  #   advisory: "This dataset is shared. Notify all owners before editing."

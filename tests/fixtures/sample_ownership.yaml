@@ -1,0 +1,18 @@
+sections:
+  audience:
+    owner: "alice@company.com"
+    charts: [2084]
+    datasets: ["WCBM_Audience_Tile_Source"]
+    description: "WAU, Avg DAU tiles"
+  revenue:
+    owner: "bob@company.com"
+    charts: [2085, 2088]
+    datasets: ["WCBM_Audience_Tile_Source"]
+    description: "Revenue tiles"
+  unassigned:
+    owner: null
+    charts: [2103]
+shared_datasets:
+  - name: "WCBM_Audience_Tile_Source"
+    owners: ["alice@company.com", "bob@company.com"]
+    advisory: "This dataset is shared. Notify all owners before editing."
