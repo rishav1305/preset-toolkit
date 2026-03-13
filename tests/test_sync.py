@@ -1,7 +1,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
-from scripts.sync import _run_sup, SyncResult
+import yaml
+from scripts.sync import _run_sup, SyncResult, pull
+from scripts.config import ToolkitConfig
 
 
 def test_run_sup_success():
@@ -40,3 +42,42 @@ def test_run_sup_auto_install_failure():
         result = _run_sup(["sync", "validate", "test"])
         assert result.returncode == 1
         assert "not installed" in result.stderr
+
+
+def _make_config(tmp_path):
+    config_dir = tmp_path / ".preset-toolkit"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "config.yaml"
+    config_path.write_text(yaml.safe_dump({
+        "version": 1,
+        "workspace": {"url": "https://test.preset.io", "id": "test123"},
+        "dashboard": {"id": 1, "name": "Test", "sync_folder": str(tmp_path / "sync")},
+        "validation": {
+            "markers_file": str(config_dir / "markers.txt"),
+            "fingerprint_file": str(config_dir / ".last-push-fingerprint"),
+        },
+    }))
+    return ToolkitConfig.load(config_path)
+
+
+def test_pull_empty_datasets_no_crash(tmp_path):
+    """Pull should succeed when datasets directory is empty."""
+    cfg = _make_config(tmp_path)
+    sync_dir = tmp_path / "sync" / "assets" / "datasets"
+    sync_dir.mkdir(parents=True)
+    with patch("scripts.sync._ensure_sup", return_value=True):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            result = pull(cfg)
+            assert result.success is True
+
+
+def test_pull_no_assets_dir_no_crash(tmp_path):
+    """Pull should succeed even when assets dir doesn't exist yet."""
+    cfg = _make_config(tmp_path)
+    (tmp_path / "sync").mkdir(parents=True)
+    with patch("scripts.sync._ensure_sup", return_value=True):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            result = pull(cfg)
+            assert result.success is True
