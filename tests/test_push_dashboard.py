@@ -68,3 +68,10 @@ def test_push_catches_connect_error(tmp_path):
             result = push_css_and_position(cfg, "body{}", dry_run=False)
             assert result.success is False
             assert "ConnectError" in result.error or "offline" in result.error
+
+
+def test_sanitize_strips_secrets():
+    from scripts.push_dashboard import _sanitize
+    assert "REDACTED" in _sanitize('token= abc123 something')
+    assert "REDACTED" in _sanitize("Authorization: Bearer eyJhbGci...")
+    assert "hello world" == _sanitize("hello world")

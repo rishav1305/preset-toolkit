@@ -1,10 +1,21 @@
 """Sync orchestrator: pull + dedup + validate + push + CSS + verify."""
+import re
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
+
+_SECRET_PATTERNS = re.compile(
+    r'(token|secret|password|authorization|bearer|jwt)\s*[=:]\s*\S+',
+    re.IGNORECASE,
+)
+
+
+def _sanitize(text: str) -> str:
+    """Remove potential secrets from error text."""
+    return _SECRET_PATTERNS.sub("[REDACTED]", text)[:500]
 
 from scripts.config import ToolkitConfig
 from scripts.dedup import apply_dedup
@@ -13,6 +24,20 @@ from scripts.fingerprint import (
 )
 from scripts.logger import get_logger
 log = get_logger("sync")
+
+_telemetry = None
+
+
+def _get_telemetry(config):
+    """Lazy init telemetry from config."""
+    global _telemetry
+    if _telemetry is None:
+        try:
+            from scripts.telemetry import Telemetry
+            _telemetry = Telemetry(config._path)
+        except Exception:
+            pass
+    return _telemetry
 
 
 @dataclass
@@ -68,7 +93,7 @@ def pull(config: ToolkitConfig) -> SyncResult:
     # Pull
     r = _run_sup(["sync", "run", sync_folder, "--pull-only", "--force"])
     if r.returncode != 0:
-        result.error = f"sup sync pull failed: {r.stderr}"
+        result.error = f"sup sync pull failed: {_sanitize(r.stderr)}"
         return result
     result.steps_completed.append("pull")
 
@@ -105,6 +130,13 @@ def pull(config: ToolkitConfig) -> SyncResult:
         result.steps_completed.append(f"fingerprint: {current_fp}")
 
     result.success = True
+    t = _get_telemetry(config)
+    if t:
+        t.track("command_complete", {
+            "command": "pull",
+            "success": result.success,
+            "steps": len(result.steps_completed),
+        })
     return result
 
 
@@ -116,7 +148,7 @@ def validate(config: ToolkitConfig) -> SyncResult:
     # Validate
     r = _run_sup(["sync", "validate", sync_folder])
     if r.returncode != 0:
-        result.error = f"Validation failed: {r.stderr}"
+        result.error = f"Validation failed: {_sanitize(r.stderr)}"
         return result
     result.steps_completed.append("validate")
 
@@ -135,11 +167,18 @@ def validate(config: ToolkitConfig) -> SyncResult:
     # Dry-run
     r = _run_sup(["sync", "run", sync_folder, "--push-only", "--dry-run", "--force"])
     if r.returncode != 0:
-        result.error = f"Dry-run failed: {r.stderr}"
+        result.error = f"Dry-run failed: {_sanitize(r.stderr)}"
         return result
     result.steps_completed.append("dry-run")
 
     result.success = True
+    t = _get_telemetry(config)
+    if t:
+        t.track("command_complete", {
+            "command": "validate",
+            "success": result.success,
+            "steps": len(result.steps_completed),
+        })
     return result
 
 
@@ -170,7 +209,7 @@ def push(
     if not css_only:
         r = _run_sup(["sync", "run", sync_folder, "--push-only", "--force"])
         if r.returncode != 0:
-            result.error = f"sup sync push failed: {r.stderr}"
+            result.error = f"sup sync push failed: {_sanitize(r.stderr)}"
             return result
         result.steps_completed.append("push: datasets/charts")
 
@@ -207,4 +246,11 @@ def push(
         result.steps_completed.append(f"fingerprint saved: {fp}")
 
     result.success = True
+    t = _get_telemetry(config)
+    if t:
+        t.track("command_complete", {
+            "command": "push",
+            "success": result.success,
+            "steps": len(result.steps_completed),
+        })
     return result

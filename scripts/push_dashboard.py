@@ -1,9 +1,20 @@
 """Push dashboard CSS + position_json via Preset REST API."""
 import os
+import re
 import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
+_SECRET_PATTERNS = re.compile(
+    r'(token|secret|password|authorization|bearer|jwt)\s*[=:]\s*\S+',
+    re.IGNORECASE,
+)
+
+
+def _sanitize(text: str) -> str:
+    """Remove potential secrets from error text."""
+    return _SECRET_PATTERNS.sub("[REDACTED]", text)[:500]
 
 try:
     import httpx
@@ -147,6 +158,6 @@ def push_css_and_position(
         resp = resilient_request("PUT", url, headers=headers, json=payload)
         return PushResult(success=True, css_changed=True, position_changed=position_json is not None)
     except httpx.HTTPStatusError as e:
-        return PushResult(success=False, error=f"HTTP {e.response.status_code}")
+        return PushResult(success=False, error=f"HTTP {e.response.status_code}: {_sanitize(e.response.text)}")
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         return PushResult(success=False, error=f"{type(e).__name__}: {e}")
