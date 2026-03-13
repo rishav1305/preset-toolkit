@@ -12,6 +12,10 @@ except ImportError:
     ensure_package("yaml")
     import yaml
 
+from scripts.logger import get_logger
+
+log = get_logger("dedup")
+
 _ID_SUFFIX_RE = re.compile(r"_\d+\.yaml$")
 
 
@@ -31,7 +35,8 @@ def find_duplicates(directory: Path) -> Dict[str, List[Tuple[float, Path]]]:
             if not uuid:
                 continue
             uuid_map[uuid].append((os.path.getmtime(f), f))
-        except Exception:
+        except (yaml.YAMLError, OSError) as e:
+            log.debug("Skipping %s: %s", f.name, e)
             continue
     return {k: v for k, v in uuid_map.items() if len(v) > 1}
 

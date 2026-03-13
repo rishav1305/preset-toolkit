@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from scripts.config import ToolkitConfig
+from scripts.logger import get_logger
+
+log = get_logger("screenshot")
 
 
 @dataclass
@@ -77,8 +80,8 @@ async def capture_dashboard(
                     try:
                         await el.screenshot(path=str(section_path))
                         result.sections[chart_id] = section_path
-                    except Exception:
-                        pass  # Element may not be visible
+                    except Exception as e:
+                        log.debug("Could not capture chart %s: %s", chart_id, e)
 
         # Save storage state for reuse
         secrets_dir = config.project_root / ".preset-toolkit" / ".secrets"

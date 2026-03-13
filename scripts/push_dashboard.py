@@ -19,6 +19,9 @@ except ImportError:
     import yaml
 
 from scripts.config import ToolkitConfig
+from scripts.logger import get_logger
+
+log = get_logger("push_dashboard")
 
 CSS_MAX_DEFAULT = 30000
 
@@ -116,8 +119,8 @@ def push_css_and_position(
         csrf_resp = httpx.get(csrf_url, headers=headers, timeout=30)
         csrf_token = csrf_resp.json().get("result", "")
         headers["X-CSRFToken"] = csrf_token
-    except Exception:
-        pass  # CSRF not always required on Preset Cloud
+    except (httpx.HTTPError, KeyError) as e:
+        log.debug("CSRF token fetch skipped: %s", e)
 
     payload = {"css": css}
     if position_json is not None:
