@@ -1,0 +1,15 @@
+{
+  "name": "preset-toolkit",
+  "owner": {
+    "name": "Rishav Chatterjee",
+    "email": "rishav.chatterjee@weather.com"
+  },
+  "plugins": [
+    {
+      "name": "preset-toolkit",
+      "source": ".",
+      "description": "Dashboard management toolkit for Preset/Superset — sync, validate, push, screenshot, visual regression, ownership",
+      "version": "0.1.0"
+    }
+  ]
+}

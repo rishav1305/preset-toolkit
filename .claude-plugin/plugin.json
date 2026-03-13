@@ -8,6 +8,6 @@
   },
   "homepage": "https://github.com/rishavchatterjee/preset-toolkit",
   "repository": "https://github.com/rishavchatterjee/preset-toolkit",
-  "license": "MIT",
+  "license": "BUSL-1.1",
   "keywords": ["preset", "superset", "dashboard", "sync", "visual-regression", "ownership"]
 }
