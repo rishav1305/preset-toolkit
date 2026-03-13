@@ -227,4 +227,4 @@ pytest tests/ -v
 
 ## License
 
-MIT
+Business Source License 1.1 — see [LICENSE](LICENSE) for details. Converts to Apache License 2.0 on 2030-03-13.
