@@ -68,3 +68,15 @@ def test_empty_directory(tmp_path):
     charts.mkdir()
     dupes = find_duplicates(charts)
     assert len(dupes) == 0
+
+
+def test_empty_yaml_file_skipped(tmp_path):
+    """Empty YAML files should be skipped without crashing."""
+    import yaml
+    d = tmp_path / "charts"
+    d.mkdir()
+    (d / "empty.yaml").write_text("")
+    (d / "valid.yaml").write_text(yaml.safe_dump({"uuid": "abc", "name": "chart"}))
+    from scripts.dedup import find_duplicates
+    dupes = find_duplicates(d)
+    assert len(dupes) == 0

@@ -25,6 +25,8 @@ def find_duplicates(directory: Path) -> Dict[str, List[Tuple[float, Path]]]:
         try:
             with open(f) as fh:
                 data = yaml.safe_load(fh)
+            if not isinstance(data, dict):
+                continue
             uuid = data.get("uuid", "")
             if not uuid:
                 continue

@@ -177,6 +177,8 @@ def push(
                 import yaml
                 with open(dash_yamls[0]) as f:
                     dash_data = yaml.safe_load(f)
+                if not isinstance(dash_data, dict):
+                    dash_data = {}
                 css = dash_data.get("css", "")
                 pos = dash_data.get("position_json", None)
                 pr = push_css_and_position(config, css, pos)

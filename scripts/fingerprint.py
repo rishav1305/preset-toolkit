@@ -35,6 +35,8 @@ def compute_fingerprint(dataset_yaml: Path) -> Fingerprint:
     """Compute SHA-256 fingerprint of the SQL field in a dataset YAML."""
     with open(dataset_yaml) as f:
         data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        data = {}
     sql = data.get("sql", "")
     h = hashlib.sha256(sql.encode()).hexdigest()[:16]
     return Fingerprint(hash=h, sql_length=len(sql))
@@ -44,6 +46,8 @@ def check_markers(dataset_yaml: Path, markers_file: Path) -> MarkerResult:
     """Check that all markers in markers_file exist in the dataset SQL."""
     with open(dataset_yaml) as f:
         data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        data = {}
     sql = data.get("sql", "")
 
     markers = []

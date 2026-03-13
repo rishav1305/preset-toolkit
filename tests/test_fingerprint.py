@@ -57,3 +57,24 @@ def test_save_and_load_fingerprint(tmp_path):
 def test_load_fingerprint_missing():
     result = load_fingerprint(Path("/nonexistent/file"))
     assert result is None
+
+
+def test_compute_fingerprint_empty_yaml(tmp_path):
+    """Empty YAML file should not crash."""
+    empty = tmp_path / "empty.yaml"
+    empty.write_text("")
+    from scripts.fingerprint import compute_fingerprint
+    fp = compute_fingerprint(empty)
+    assert fp.hash != ""
+    assert fp.sql_length == 0
+
+
+def test_check_markers_empty_yaml(tmp_path):
+    """Empty dataset YAML should report all markers missing."""
+    empty = tmp_path / "empty.yaml"
+    empty.write_text("")
+    markers = tmp_path / "markers.txt"
+    markers.write_text("some_marker\n")
+    from scripts.fingerprint import check_markers
+    result = check_markers(empty, markers)
+    assert result.all_present is False

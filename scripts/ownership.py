@@ -54,6 +54,8 @@ class OwnershipMap:
     def load(cls, path: Path) -> "OwnershipMap":
         with open(path) as f:
             data = yaml.safe_load(f)
+        if not isinstance(data, dict):
+            data = {}
 
         sections = {}
         for name, sec_data in data.get("sections", {}).items():
