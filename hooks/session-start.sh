@@ -84,3 +84,17 @@ fi
 MSG="$MSG\n  Use /preset for all dashboard operations."
 
 printf "%b\n" "$MSG"
+
+# Fire telemetry: plugin_loaded (non-blocking, fail-silent)
+python3 -c "
+import sys; sys.path.insert(0, '$PROJECT_ROOT')
+try:
+    from scripts.telemetry import get_telemetry
+    from pathlib import Path
+    t = get_telemetry(Path('$CONFIG_PATH'))
+    t.identify()
+    t.track('plugin_loaded', {'dashboard_id': int('${DASH_ID:-0}' or 0)})
+    t.shutdown()
+except Exception:
+    pass
+" 2>/dev/null &

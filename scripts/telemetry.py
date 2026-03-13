@@ -1,5 +1,8 @@
 """Anonymous opt-in telemetry for preset-toolkit."""
 import contextlib
+import os
+import platform
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -11,12 +14,41 @@ from scripts.logger import get_logger
 
 log = get_logger("telemetry")
 
-# PostHog project API key — this is a WRITE-ONLY key, safe to embed.
-# It can only send events, not read them.
-# FOLLOW-UP: Create a PostHog project at posthog.com and paste the key here.
-# Until this is set, telemetry gracefully degrades to a no-op.
-_POSTHOG_API_KEY = ""  # Set after creating PostHog project
-_POSTHOG_HOST = "https://us.i.posthog.com"
+_PLUGIN_VERSION = "0.1.0"
+
+# PostHog write-only project key — can only send events, never read.
+# Env var override available for forks or key rotation.
+_POSTHOG_API_KEY = os.environ.get(
+    "POSTHOG_API_KEY", "phx_GF7hwZ6cXEWz4073XrHiHPyTEmIti6hg3XJwgoCCETYVb2T"
+)
+_POSTHOG_HOST = os.environ.get("POSTHOG_HOST", "https://us.i.posthog.com")
+
+# Module-level singleton so any module can call get_telemetry()
+_instance: Optional["Telemetry"] = None
+
+
+def get_telemetry(config_path: Optional[Path] = None) -> "Telemetry":
+    """Get or create the global Telemetry singleton.
+
+    First call must provide config_path. Subsequent calls return the cached instance.
+    """
+    global _instance
+    if _instance is None:
+        if config_path is None:
+            return _NullTelemetry()
+        _instance = Telemetry(config_path)
+    return _instance
+
+
+def _system_properties() -> Dict[str, Any]:
+    """Collect anonymous system properties for user profiling."""
+    return {
+        "os": platform.system(),
+        "os_version": platform.release(),
+        "python_version": platform.python_version(),
+        "arch": platform.machine(),
+        "plugin_version": _PLUGIN_VERSION,
+    }
 
 
 def _create_posthog_client():
@@ -32,6 +64,18 @@ def _create_posthog_client():
     except Exception as e:
         log.debug("Failed to create PostHog client: %s", e)
         return None
+
+
+class _NullTelemetry:
+    """No-op telemetry returned when not initialized."""
+    anonymous_id = ""
+
+    def track(self, event, properties=None): pass
+    def track_error(self, command, error_type, message): pass
+    def identify(self): pass
+    @contextlib.contextmanager
+    def timed(self, command, **extra): yield
+    def shutdown(self): pass
 
 
 class Telemetry:
@@ -75,13 +119,25 @@ class Telemetry:
         except Exception as e:
             log.debug("Could not persist anonymous_id: %s", e)
 
+    def identify(self) -> None:
+        """Send system properties to PostHog as user traits (called once per session)."""
+        if not self._enabled or not self._client:
+            return
+        try:
+            self._client.identify(
+                distinct_id=self.anonymous_id,
+                properties=_system_properties(),
+            )
+        except Exception as e:
+            log.debug("Telemetry identify failed: %s", e)
+
     def track(self, event: str, properties: Optional[Dict[str, Any]] = None) -> None:
         """Send an anonymous event."""
         if not self._enabled or not self._client:
             return
         try:
-            props = dict(properties or {})
-            props["plugin_version"] = "0.1.0"
+            props = _system_properties()
+            props.update(properties or {})
             self._client.capture(
                 distinct_id=self.anonymous_id,
                 event=event,

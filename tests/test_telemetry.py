@@ -3,9 +3,19 @@ import time
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
+import pytest
 import yaml
 
-from scripts.telemetry import Telemetry
+import scripts.telemetry as telemetry_mod
+from scripts.telemetry import Telemetry, get_telemetry, _NullTelemetry
+
+
+@pytest.fixture(autouse=True)
+def _reset_singleton():
+    """Reset the module singleton between tests."""
+    telemetry_mod._instance = None
+    yield
+    telemetry_mod._instance = None
 
 
 def _make_config(tmp_path, enabled=True):
@@ -90,3 +100,50 @@ def test_telemetry_error_event(tmp_path):
         assert call_args[1]["event"] == "error"
         assert call_args[1]["properties"]["command"] == "push"
         assert call_args[1]["properties"]["error_type"] == "HTTPStatusError"
+
+
+def test_get_telemetry_returns_null_without_config():
+    """get_telemetry() with no config returns a no-op instance."""
+    t = get_telemetry()
+    assert isinstance(t, _NullTelemetry)
+    # Should be safe to call all methods
+    t.track("test")
+    t.track_error("cmd", "err", "msg")
+    t.identify()
+    with t.timed("cmd"):
+        pass
+    t.shutdown()
+
+
+def test_get_telemetry_singleton(tmp_path):
+    """get_telemetry() returns the same instance on repeated calls."""
+    config_path = _make_config(tmp_path, enabled=False)
+    t1 = get_telemetry(config_path)
+    t2 = get_telemetry()
+    assert t1 is t2
+
+
+def test_identify_sends_system_properties(tmp_path):
+    config_path = _make_config(tmp_path, enabled=True)
+    mock_client = MagicMock()
+    with patch("scripts.telemetry._create_posthog_client", return_value=mock_client):
+        t = Telemetry(config_path)
+        t.identify()
+        mock_client.identify.assert_called_once()
+        props = mock_client.identify.call_args[1]["properties"]
+        assert "os" in props
+        assert "python_version" in props
+        assert "plugin_version" in props
+
+
+def test_track_includes_system_properties(tmp_path):
+    """Every track() call should include system properties."""
+    config_path = _make_config(tmp_path, enabled=True)
+    mock_client = MagicMock()
+    with patch("scripts.telemetry._create_posthog_client", return_value=mock_client):
+        t = Telemetry(config_path)
+        t.track("test_event", {"custom": "value"})
+        props = mock_client.capture.call_args[1]["properties"]
+        assert props["custom"] == "value"
+        assert "os" in props
+        assert "plugin_version" in props
