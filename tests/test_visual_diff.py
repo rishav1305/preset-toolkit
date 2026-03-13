@@ -66,6 +66,25 @@ def test_custom_color_tolerance(tmp_path):
     assert result_loose.diff_ratio == 0.0
 
 
+def test_corrupt_image_returns_error(tmp_path):
+    """Corrupt image file should return DiffResult with error, not crash."""
+    good = _make_image(tmp_path, "good.png", (255, 0, 0))
+    corrupt = tmp_path / "corrupt.png"
+    corrupt.write_text("not a valid image")
+    result = compare_images(good, corrupt)
+    assert result.passed is False
+    assert result.error != ""
+
+
+def test_missing_image_returns_error(tmp_path):
+    """Missing image file should return DiffResult with error."""
+    good = _make_image(tmp_path, "good.png", (255, 0, 0))
+    missing = tmp_path / "missing.png"
+    result = compare_images(good, missing)
+    assert result.passed is False
+    assert result.error != ""
+
+
 def test_large_image_comparison_completes_in_time(tmp_path):
     """Visual diff of 1920x1080 images should complete in <5 seconds."""
     import time
