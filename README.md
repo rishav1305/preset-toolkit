@@ -1,224 +1,267 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet?style=for-the-badge" alt="Claude Code Plugin" />
+  <img src="https://img.shields.io/badge/Preset-Dashboard_Toolkit-orange?style=for-the-badge" alt="Preset Dashboard Toolkit" />
+  <img src="https://img.shields.io/badge/tests-102_passing-brightgreen?style=for-the-badge" alt="102 Tests Passing" />
+  <img src="https://img.shields.io/badge/license-BUSL_1.1-blue?style=for-the-badge" alt="License" />
+</p>
+
 # preset-toolkit
 
-A Claude Code plugin for safe, collaborative Preset/Superset dashboard management. One command (`/preset`) gives you pull, push, validation, screenshots, visual regression testing, and section ownership — designed so anyone on your team can manage dashboards without making mistakes.
+**Stop breaking dashboards.** A Claude Code plugin that makes Preset/Superset dashboard management safe, collaborative, and mistake-proof.
+
+One command — `/preset` — gives your team pull, push, validation, screenshots, visual regression, and ownership guardrails. No more pushing stale data, overwriting someone's work, or losing CSS.
+
+---
+
+## How It Works
+
+```
+You say:                        preset-toolkit does:
+─────────────────────────────── ──────────────────────────────────────
+/preset pull                    Pull → Dedup → Fingerprint check
+/preset push                    Validate → Markers → Push → CSS → Verify
+/preset screenshot              Launch browser → Capture → Save PNGs
+/preset diff                    Compare screenshots → Flag regressions
+/preset "push my revenue edits" NLP routing → Same safe workflow
+```
+
+### The Safety Net
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │            /preset push                  │
+                    └────────────────┬────────────────────────┘
+                                     │
+                    ┌────────────────▼────────────────────────┐
+                    │  1. Validate (sup sync --dry-run)        │
+                    │  2. Check markers in SQL                 │
+                    │  3. Fingerprint check (stale data?)      │
+                    │  4. Ownership warnings                   │
+                    └────────────────┬────────────────────────┘
+                                     │ All clear?
+                          ┌──────────┴──────────┐
+                          │                     │
+                    ┌─────▼──────┐       ┌──────▼─────┐
+                    │ sup sync   │       │  REST API  │
+                    │ (charts +  │       │  (CSS +    │
+                    │  datasets) │       │  position) │
+                    └─────┬──────┘       └──────┬─────┘
+                          │                     │
+                    ┌─────▼─────────────────────▼─────┐
+                    │  5. Post-push verify              │
+                    │     (pull-back + marker recheck)  │
+                    └──────────────────────────────────┘
+```
+
+> **Why two-stage push?** `sup sync` overwrites dashboard CSS. preset-toolkit pushes charts/datasets via CLI, then CSS/position via REST API separately — so your styles are never lost.
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Install the plugin
+# Install the plugin
 /plugin install preset-toolkit
 
-# 2. Create a project folder and set up
+# Set up a dashboard project
 mkdir my-dashboard && cd my-dashboard
 /preset setup
 
-# 3. Start working
-/preset pull          # Pull latest from Preset
-# ... make changes ...
-/preset push          # Validate + push (with approval gate)
+# Start working
+/preset pull
+# ... make your changes ...
+/preset push
 ```
 
-## What It Does
+**Prerequisites:** Python 3.8+ and [Claude Code](https://claude.ai/code) with plugin support.
 
-preset-toolkit wraps the Preset CLI (`sup`) and REST API into a safe, guided workflow. It prevents the most common mistakes teams make when collaborating on dashboards: pushing stale data, overwriting someone else's work, losing CSS changes, and breaking visual layouts.
+---
 
 ## Features
 
-- **Single entry point** — `/preset` routes to the right action based on what you say
-- **One folder per dashboard** — no cross-contamination between dashboards
-- **Content fingerprinting** — detects stale pulls and regressions before you push
-- **Marker validation** — required strings must exist in dataset SQL before any push
-- **Visual regression** — pixel-diff screenshots against baselines to catch layout changes
-- **Section ownership** — advisory warnings when editing tiles owned by someone else
-- **Two-stage push** — datasets/charts via `sup sync`, CSS/position via REST API (because `sup sync` overwrites CSS)
-- **Safe YAML editing** — built-in guardrails against `yaml.dump()` corruption
-- **Post-push verification** — automatic pull-back and marker check after every push
-- **Built-in reference docs** — Preset CLI, API, CSS, and common pitfalls bundled as knowledge base
+| Feature | What it does |
+|---------|-------------|
+| **Smart routing** | Say `/preset` + anything — natural language or direct commands |
+| **Content fingerprinting** | SHA-256 hash detects stale pulls before you push |
+| **Marker validation** | Required strings must exist in SQL — catches accidental deletions |
+| **Visual regression** | Pixel-diff screenshots catch layout changes invisible in code |
+| **Section ownership** | Advisory warnings when you touch someone else's tiles |
+| **Deduplication** | Auto-removes duplicate chart/dataset YAMLs by UUID |
+| **Safe YAML** | Never uses `yaml.dump()` — string replacement preserves formatting |
+| **Post-push verify** | Automatic pull-back and recheck after every push |
 
-## Prerequisites
+---
 
-- Python 3.8+
-- [Preset CLI](https://github.com/preset-io/preset-cli) (`pip install preset-cli`)
-- Claude Code with plugin support
+## Visual Regression
 
-For screenshots and visual regression:
+Catch what code review can't — visual changes to your dashboard layout.
+
+```
+  Baseline (last push)          Current (after changes)         Diff (auto-generated)
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│  ┌──────┐ ┌──────┐   │    │  ┌──────┐ ┌──────┐   │    │  ┌──────┐ ┌──────┐   │
+│  │ Rev  │ │ DAU  │   │    │  │ Rev  │ │ DAU  │   │    │  │      │ │      │   │
+│  └──────┘ └──────┘   │    │  └──────┘ └──────┘   │    │  └──────┘ └──────┘   │
+│  ┌────────────────┐   │    │  ┌─────┐ ┌────────┐  │    │  ┌─────┐ ┌────────┐  │
+│  │    Chart A     │   │    │  │  A  │ │   B    │  │    │  │█████│ │████████│  │
+│  └────────────────┘   │    │  └─────┘ └────────┘  │    │  └─────┘ └────────┘  │
+└──────────────────────┘    └──────────────────────┘    └──────────────────────┘
+                                                          █ = changed pixels
+```
+
 ```bash
-pip install playwright && playwright install chromium
+/preset screenshot        # Capture baselines
+# ... make changes ...
+/preset diff              # Compare — flags >1% pixel difference
 ```
 
-## Installation
+Uses NumPy-accelerated comparison when available, with color tolerance for anti-aliasing.
 
-```bash
-/plugin install preset-toolkit
+---
+
+## Section Ownership
+
+Define who owns what. Get warnings — never blocks.
+
+```yaml
+# .preset-toolkit/ownership.yaml
+sections:
+  revenue:
+    owner: "alice@company.com"
+    charts: [2085, 2088]
+  audience:
+    owner: "bob@company.com"
+    charts: [2084]
+shared_datasets:
+  - name: "Main_Dataset"
+    owners: ["alice@company.com", "bob@company.com"]
+    advisory: "Notify all owners before editing."
 ```
 
-## Usage
-
-### Interactive Menu
 ```
-/preset                     → Show menu with all options
+⚠ Chart 2085 belongs to 'revenue' (owned by alice@company.com).
+  Notify them before pushing.
 ```
 
-### Direct Commands
+---
+
+## Commands
+
 ```
-/preset setup               → First-time project wizard
-/preset pull                → Pull latest from Preset + dedup + fingerprint check
-/preset push                → Validate + markers + push + CSS + verify
-/preset screenshot          → Capture dashboard screenshots
-/preset check               → Health check (validate + markers + fingerprint)
-/preset diff                → Visual regression diff against baselines
-/preset status              → Show config, ownership, last push info
-/preset help                → Contextual help
+/preset                         Interactive menu
+/preset setup                   First-time project wizard
+/preset pull                    Pull + dedup + fingerprint
+/preset push                    Full validation pipeline + push
+/preset push --css-only         Push only CSS/position via API
+/preset screenshot              Capture dashboard screenshots
+/preset diff                    Visual regression comparison
+/preset check                   Health check (validate + markers)
+/preset status                  Show config and last push info
+/preset help                    Contextual help
 ```
 
-### Natural Language
+Or just describe what you want:
+
 ```
 /preset I want to push my revenue changes
 /preset what's the current state of the dashboard?
 /preset something looks wrong with the tiles
 ```
 
+---
+
+## Auth
+
+**Environment variables** (recommended):
+```bash
+export PRESET_API_TOKEN="your-token"
+export PRESET_API_SECRET="your-secret"
+```
+
+**File-based** (set `auth.method: "file"` in config):
+```
+# .preset-toolkit/.secrets/keys.txt  (auto-gitignored)
+PRESET_API_TOKEN=your-token
+PRESET_API_SECRET=your-secret
+```
+
+> HTTPS is enforced — the toolkit refuses to send credentials over plaintext HTTP.
+
+---
+
 ## Configuration
 
-### `.preset-toolkit/config.yaml`
-
-Created by `/preset setup`. Key settings:
+Created by `/preset setup` at `.preset-toolkit/config.yaml`:
 
 ```yaml
-version: 1
 workspace:
   url: "https://your-workspace.us2a.app.preset.io"
   id: "12345"
 dashboard:
   id: 76
   name: "My Dashboard"
-  sync_folder: "sync"
-auth:
-  method: "env"              # or "file" for .secrets/keys.txt
 screenshots:
   wait_seconds: 15
+  navigation_timeout: 60      # seconds
   mask_selectors:
-    - ".header-with-actions"
+    - ".header-with-actions"   # hide dynamic elements
 visual_regression:
-  threshold: 0.01            # 1% pixel diff tolerance
+  threshold: 0.01              # 1% pixel diff tolerance
 css:
-  max_length: 30000          # Preset truncates at ~33K
+  max_length: 30000            # Preset truncates at ~33K
   push_via_api: true
 validation:
   markers_file: ".preset-toolkit/markers.txt"
   require_markers_before_push: true
   verify_after_push: true
-user:
-  email: "you@company.com"
 ```
 
-### `.preset-toolkit/ownership.yaml`
+<details>
+<summary><strong>Telemetry (optional)</strong></summary>
 
-Maps dashboard sections to owners:
+Anonymous, opt-in usage telemetry via PostHog. Inert unless configured:
 
-```yaml
-sections:
-  revenue:
-    owner: "alice@company.com"
-    charts: [2085, 2088]
-    description: "Revenue tiles and cards"
-  audience:
-    owner: "bob@company.com"
-    charts: [2084]
-    description: "WAU, DAU metrics"
-shared_datasets:
-  - name: "Main_Dataset"
-    owners: ["alice@company.com", "bob@company.com"]
-    advisory: "Shared dataset — notify all owners before editing."
-```
-
-### `.preset-toolkit/markers.txt`
-
-Required strings that must exist in dataset SQL before push:
-
-```
-# One marker per line. Comments and blanks are ignored.
-Revenue - Ads | Subs Sales
-weekly_total_revenue_curr
-wcbm-section__hdr
-```
-
-## Visual Regression Testing
-
-```bash
-# 1. Capture baselines (first time)
-/preset screenshot
-
-# 2. Make changes and push
-
-# 3. Compare against baselines
-/preset diff
-
-# 4. If changes are intentional, approve to update baselines
-```
-
-The diff uses pixel-level comparison with Euclidean RGB color tolerance (handles anti-aliasing). Default threshold: 1% of pixels may differ before flagging a regression.
-
-## Auth
-
-Set your Preset API credentials:
-
-```bash
-export PRESET_API_TOKEN="your-token"
-export PRESET_API_SECRET="your-secret"
-```
-
-Or use file-based auth (set `auth.method: "file"` in config):
-```
-# .preset-toolkit/.secrets/keys.txt
-PRESET_API_TOKEN=your-token
-PRESET_API_SECRET=your-secret
-```
-
-The `.secrets/` directory is gitignored by default.
-
-### Telemetry (Optional)
-
-To enable anonymous usage telemetry via PostHog, set:
 ```bash
 export POSTHOG_API_KEY="your-posthog-project-key"
 ```
 
-Telemetry is inert (no data sent) unless both `POSTHOG_API_KEY` is set and `telemetry.enabled: true` in your config.
+Also requires `telemetry.enabled: true` in config. No data is ever sent without both conditions met.
 
-## Project Structure
+</details>
+
+---
+
+## Architecture
 
 ```
 preset-toolkit/
-├── .claude-plugin/plugin.json     # Plugin metadata
-├── hooks/                         # Session auto-detection
+├── .claude-plugin/           Plugin metadata
+├── hooks/                    Session auto-detection
 ├── skills/
-│   ├── preset-toolkit/SKILL.md    # Router (single entry point)
-│   └── _internal/                 # 15 internal skills
-├── agents/                        # Visual diff + conflict check agents
-├── references/                    # Preset knowledge base (7 docs)
-├── scripts/                       # Python automation modules
-│   ├── config.py                  # Config reader
-│   ├── sync.py                    # Pull/push orchestrator
-│   ├── dedup.py                   # UUID-based duplicate removal
-│   ├── fingerprint.py             # SHA-256 hash + marker checks
-│   ├── screenshot.py              # Playwright capture
-│   ├── visual_diff.py             # Pixel comparison
-│   ├── push_dashboard.py          # REST API push (CSS/position)
-│   └── ownership.py               # Section ownership checking
-├── templates/                     # Project scaffolding templates
-└── tests/                         # 44 tests (unit + integration)
+│   ├── preset-toolkit/       Router (single /preset entry point)
+│   └── _internal/            15 internal skills
+├── agents/                   Visual diff + conflict check
+├── references/               Preset knowledge base (7 docs)
+├── scripts/                  Python automation
+│   ├── config.py             Config reader + validation
+│   ├── sync.py               Pull/push orchestrator
+│   ├── push_dashboard.py     REST API push (CSS/position)
+│   ├── screenshot.py         Playwright browser capture
+│   ├── visual_diff.py        Pixel comparison (NumPy + Pillow)
+│   ├── fingerprint.py        SHA-256 content hashing
+│   ├── dedup.py              UUID duplicate removal
+│   ├── ownership.py          Section ownership checks
+│   ├── http.py               Retry with exponential backoff + jitter
+│   ├── telemetry.py          Anonymous opt-in telemetry
+│   ├── deps.py               Auto-install missing dependencies
+│   └── logger.py             Structured logging
+├── templates/                Project scaffolding
+└── tests/                    102 tests (unit + integration)
 ```
 
+---
+
 ## For Contributors
-
-### Adding a new skill
-
-1. Create `skills/_internal/your-skill/SKILL.md`
-2. Add frontmatter: `name`, `description` (start with "Use when...")
-3. Include the Conversation Principles (never ask tech questions)
-4. Reference relevant `references/*.md` docs
-5. Add routing logic to `skills/preset-toolkit/SKILL.md`
 
 ### Running tests
 
@@ -227,13 +270,24 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-### Key design decisions
+### Design Principles
 
-- **Never `yaml.dump()`** — always use string replacement for YAML editing
-- **Two-stage push** — `sup sync` for charts/datasets, REST API for CSS/position
-- **Advisory-only ownership** — warnings, never blocks
-- **Business questions only** — skills never ask tech/infra questions
+- **Never `yaml.dump()`** — string replacement preserves YAML formatting
+- **Two-stage push** — CLI for data, REST API for presentation
+- **Advisory ownership** — warns, never blocks
+- **Business questions only** — skills never ask technical/infra questions
+- **Fail safe** — every external call has retries, timeouts, and error handling
+
+### Adding a skill
+
+1. Create `skills/_internal/your-skill/SKILL.md`
+2. Add frontmatter: `name`, `description` (start with "Use when...")
+3. Reference relevant `references/*.md` docs
+4. Add routing logic to `skills/preset-toolkit/SKILL.md`
+
+---
 
 ## License
 
-Business Source License 1.1 — see [LICENSE](LICENSE) for details. Converts to Apache License 2.0 on 2030-03-13.
+Business Source License 1.1 — see [LICENSE](LICENSE) for details.
+Converts to Apache License 2.0 on 2030-03-13.
