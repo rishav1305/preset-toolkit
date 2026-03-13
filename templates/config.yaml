@@ -43,6 +43,13 @@ validation:
 user:
   email: "{{user_email}}"
 
+api:
+  # Override these for vanilla Superset or custom deployments
+  login_path: "/api/v1/security/login"
+  csrf_path: "/api/v1/security/csrf_token/"
+  dashboard_path: "/api/v1/dashboard/{id}"
+  dashboard_url_pattern: "/superset/dashboard/{id}/"
+
 telemetry:
   enabled: true          # Opt-in: set to false to disable anonymous telemetry
   anonymous_id: ""       # Auto-generated on first run (UUIDv4, NOT your email)

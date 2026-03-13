@@ -34,9 +34,8 @@ async def capture_dashboard(
     output_dir.mkdir(parents=True, exist_ok=True)
     result = ScreenshotResult()
 
-    dashboard_url = (
-        f"{config.workspace_url.rstrip('/')}/superset/dashboard/{config.dashboard_id}/"
-    )
+    url_pattern = config.get("api.dashboard_url_pattern", "/superset/dashboard/{id}/")
+    dashboard_url = f"{config.workspace_url.rstrip('/')}{url_pattern.format(id=config.dashboard_id)}"
     wait_ms = config.get("screenshots.wait_seconds", 15) * 1000
     mask_selectors = config.get("screenshots.mask_selectors", [])
 

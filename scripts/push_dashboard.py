@@ -72,7 +72,8 @@ def _get_auth_headers(config: ToolkitConfig) -> dict:
     if not token:
         return {}
     # Exchange API token for JWT via Preset's auth endpoint
-    auth_url = f"{config.workspace_url.rstrip('/')}/api/v1/security/login"
+    login_path = config.get("api.login_path", "/api/v1/security/login")
+    auth_url = f"{config.workspace_url.rstrip('/')}{login_path}"
     resp = resilient_request("POST", auth_url, json={
         "username": token,
         "password": secret,
@@ -94,7 +95,8 @@ def compare_css(local_css: str, remote_css: str) -> CssComparison:
 
 def fetch_dashboard(config: ToolkitConfig) -> dict:
     """GET /api/v1/dashboard/{id}"""
-    url = f"{config.workspace_url.rstrip('/')}/api/v1/dashboard/{config.dashboard_id}"
+    dash_path = config.get("api.dashboard_path", "/api/v1/dashboard/{id}")
+    url = f"{config.workspace_url.rstrip('/')}{dash_path.format(id=config.dashboard_id)}"
     headers = _get_auth_headers(config)
     resp = resilient_request("GET", url, headers=headers)
     return resp.json().get("result", {})
@@ -117,11 +119,13 @@ def push_css_and_position(
             and position_json != remote.get("position_json", ""),
         )
 
-    url = f"{config.workspace_url.rstrip('/')}/api/v1/dashboard/{config.dashboard_id}"
+    dash_path = config.get("api.dashboard_path", "/api/v1/dashboard/{id}")
+    url = f"{config.workspace_url.rstrip('/')}{dash_path.format(id=config.dashboard_id)}"
     headers = _get_auth_headers(config)
 
     # Fetch CSRF token
-    csrf_url = f"{config.workspace_url.rstrip('/')}/api/v1/security/csrf_token/"
+    csrf_path = config.get("api.csrf_path", "/api/v1/security/csrf_token/")
+    csrf_url = f"{config.workspace_url.rstrip('/')}{csrf_path}"
     try:
         csrf_resp = resilient_request("GET", csrf_url, headers=headers, retries=1)
         csrf_token = csrf_resp.json().get("result", "")
