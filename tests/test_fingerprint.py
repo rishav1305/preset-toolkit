@@ -88,6 +88,24 @@ def test_load_fingerprint_malformed(tmp_path):
     assert load_fingerprint(fp_file) is None
 
 
+def test_compute_fingerprint_corrupt_yaml(tmp_path):
+    """Corrupt YAML in dataset should return empty fingerprint, not crash."""
+    corrupt = tmp_path / "dataset.yaml"
+    corrupt.write_text(": : invalid yaml [[[")
+    fp = compute_fingerprint(corrupt)
+    assert fp.hash != ""
+    assert fp.sql_length == 0
+
+
+def test_save_fingerprint_creates_parent_dir(tmp_path):
+    """save_fingerprint should create parent directory if missing."""
+    fp = Fingerprint(hash="abc123", sql_length=100)
+    fp_path = tmp_path / "deep" / "nested" / "fingerprint"
+    save_fingerprint(fp, fp_path)
+    assert fp_path.exists()
+    assert "abc123" in fp_path.read_text()
+
+
 def test_load_fingerprint_non_numeric_length(tmp_path):
     """Non-numeric SQL length should return None."""
     from scripts.fingerprint import load_fingerprint

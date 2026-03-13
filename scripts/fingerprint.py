@@ -11,6 +11,10 @@ except ImportError:
     ensure_package("yaml")
     import yaml
 
+from scripts.logger import get_logger
+
+log = get_logger("fingerprint")
+
 
 @dataclass
 class Fingerprint:
@@ -33,8 +37,12 @@ class MarkerResult:
 
 def compute_fingerprint(dataset_yaml: Path) -> Fingerprint:
     """Compute SHA-256 fingerprint of the SQL field in a dataset YAML."""
-    with open(dataset_yaml) as f:
-        data = yaml.safe_load(f)
+    try:
+        with open(dataset_yaml) as f:
+            data = yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as e:
+        log.warning("Could not read %s: %s", dataset_yaml.name, e)
+        data = {}
     if not isinstance(data, dict):
         data = {}
     sql = data.get("sql", "")
@@ -44,8 +52,12 @@ def compute_fingerprint(dataset_yaml: Path) -> Fingerprint:
 
 def check_markers(dataset_yaml: Path, markers_file: Path) -> MarkerResult:
     """Check that all markers in markers_file exist in the dataset SQL."""
-    with open(dataset_yaml) as f:
-        data = yaml.safe_load(f)
+    try:
+        with open(dataset_yaml) as f:
+            data = yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as e:
+        log.warning("Could not read %s: %s", dataset_yaml.name, e)
+        data = {}
     if not isinstance(data, dict):
         data = {}
     sql = data.get("sql", "")
@@ -66,6 +78,7 @@ def check_markers(dataset_yaml: Path, markers_file: Path) -> MarkerResult:
 
 
 def save_fingerprint(fingerprint: Fingerprint, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(str(fingerprint) + "\n")
 
 
@@ -75,8 +88,10 @@ def load_fingerprint(path: Path) -> Optional[Fingerprint]:
     text = path.read_text().strip()
     parts = text.split()
     if len(parts) != 2:
+        log.debug("Malformed fingerprint file: %s", path)
         return None
     try:
         return Fingerprint(hash=parts[0], sql_length=int(parts[1]))
     except (ValueError, IndexError):
+        log.debug("Invalid fingerprint values in: %s", path)
         return None
