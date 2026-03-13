@@ -80,6 +80,12 @@ def _get_auth_headers(config: ToolkitConfig) -> dict:
         "provider": "db",
     })
     jwt = resp.json().get("access_token", "")
+    if not jwt:
+        log.error("Auth exchange returned empty JWT")
+        return {}
+    if jwt.count(".") != 2:
+        log.error("Auth exchange returned malformed JWT")
+        return {}
     return {"Authorization": f"Bearer {jwt}"}
 
 
