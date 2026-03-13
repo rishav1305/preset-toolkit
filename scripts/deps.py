@@ -3,6 +3,9 @@ import importlib
 import subprocess
 import sys
 
+from scripts.logger import get_logger
+log = get_logger("deps")
+
 
 # Map of import name -> pip package name (only where they differ)
 _PIP_NAMES = {
@@ -21,15 +24,15 @@ OPTIONAL_DEPS = {
 
 def _pip_install(package: str) -> bool:
     """Install a package via pip. Returns True on success."""
-    print(f"  Installing {package}...")
+    log.info("Installing %s...", package)
     result = subprocess.run(
         [sys.executable, "-m", "pip", "install", package],
         capture_output=True, text=True, timeout=120,
     )
     if result.returncode == 0:
-        print(f"  Installed {package} successfully.")
+        log.info("Installed %s successfully.", package)
         return True
-    print(f"  Failed to install {package}: {result.stderr.strip()}")
+    log.warning("Failed to install %s: %s", package, result.stderr.strip())
     return False
 
 
@@ -52,7 +55,7 @@ def ensure_package(import_name: str) -> bool:
     if _is_importable(import_name):
         return True
     pip_pkg = _pip_name(import_name)
-    print(f"  {pip_pkg} not found.")
+    log.info("%s not found.", pip_pkg)
     if _pip_install(pip_pkg):
         importlib.invalidate_caches()
         return _is_importable(import_name)
@@ -75,7 +78,7 @@ def ensure_sup_cli() -> bool:
     )
     if result.returncode == 0:
         return True
-    print("  preset-cli (sup) not found.")
+    log.info("preset-cli (sup) not found.")
     if _pip_install("preset-cli"):
         # Verify it works after install
         verify = subprocess.run(
@@ -96,15 +99,15 @@ def ensure_playwright() -> bool:
     )
     # If dry-run shows nothing to install, we're good. Otherwise install.
     if "chromium" in result.stdout or result.returncode != 0:
-        print("  Installing Playwright Chromium browser...")
+        log.info("Installing Playwright Chromium browser...")
         install = subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
             capture_output=True, text=True, timeout=300,
         )
         if install.returncode != 0:
-            print(f"  Failed to install Chromium: {install.stderr.strip()}")
+            log.warning("Failed to install Chromium: %s", install.stderr.strip())
             return False
-        print("  Chromium installed successfully.")
+        log.info("Chromium installed successfully.")
     return True
 
 

@@ -64,9 +64,9 @@ def apply_dedup(directory: Path, dry_run: bool = False) -> int:
             if f == keeper:
                 continue
             if dry_run:
-                print(f"  would remove: {f.name}")
+                log.info("Would remove: %s", f.name)
             else:
                 f.unlink()
-                print(f"  REMOVED: {f.name}")
+                log.info("Removed duplicate: %s", f.name)
             removed += 1
     return removed

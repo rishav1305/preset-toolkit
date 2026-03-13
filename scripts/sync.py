@@ -10,6 +10,8 @@ from scripts.dedup import apply_dedup
 from scripts.fingerprint import (
     compute_fingerprint, check_markers, save_fingerprint, load_fingerprint,
 )
+from scripts.logger import get_logger
+log = get_logger("sync")
 
 
 @dataclass
@@ -48,7 +50,7 @@ def _run_sup(args: List[str], retries: int = 3) -> subprocess.CompletedProcess:
         if last_result.returncode == 0:
             return last_result
         if attempt < retries:
-            print(f"WARN: sup {' '.join(args)} failed (attempt {attempt}/{retries}), retrying...")
+            log.warning("sup %s failed (attempt %d/%d), retrying...", " ".join(args), attempt, retries)
     return last_result
 
 
