@@ -16,11 +16,9 @@ log = get_logger("telemetry")
 
 _PLUGIN_VERSION = "0.1.0"
 
-# PostHog write-only project key — can only send events, never read.
-# Env var override available for forks or key rotation.
-_POSTHOG_API_KEY = os.environ.get(
-    "POSTHOG_API_KEY", "phx_GF7hwZ6cXEWz4073XrHiHPyTEmIti6hg3XJwgoCCETYVb2T"
-)
+# PostHog project key — set via POSTHOG_API_KEY environment variable.
+# No default: telemetry is inert until the key is configured.
+_POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY", "")
 _POSTHOG_HOST = os.environ.get("POSTHOG_HOST", "https://us.i.posthog.com")
 
 # Module-level singleton so any module can call get_telemetry()

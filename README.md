@@ -177,6 +177,15 @@ PRESET_API_SECRET=your-secret
 
 The `.secrets/` directory is gitignored by default.
 
+### Telemetry (Optional)
+
+To enable anonymous usage telemetry via PostHog, set:
+```bash
+export POSTHOG_API_KEY="your-posthog-project-key"
+```
+
+Telemetry is inert (no data sent) unless both `POSTHOG_API_KEY` is set and `telemetry.enabled: true` in your config.
+
 ## Project Structure
 
 ```
