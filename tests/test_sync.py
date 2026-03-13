@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import yaml
-from scripts.sync import _run_sup, SyncResult, pull
+from scripts.sync import _run_sup, SyncResult, pull, validate, push
 from scripts.config import ToolkitConfig
 
 
@@ -83,3 +83,38 @@ def test_pull_no_assets_dir_no_crash(tmp_path):
             mock_run.return_value = MagicMock(returncode=0)
             result = pull(cfg)
             assert result.success is True
+
+
+def test_validate_success(tmp_path):
+    """validate() should succeed when sup and markers pass."""
+    cfg = _make_config(tmp_path)
+    markers = tmp_path / ".preset-toolkit" / "markers.txt"
+    markers.write_text("test_marker\n")
+    ds_dir = tmp_path / "sync" / "assets" / "datasets" / "db"
+    ds_dir.mkdir(parents=True)
+    import yaml as _yaml
+    with open(ds_dir / "ds.yaml", "w") as f:
+        _yaml.safe_dump({"sql": "SELECT test_marker FROM t"}, f)
+    with patch("scripts.sync._ensure_sup", return_value=True):
+        with patch("subprocess.run") as mock_run:
+            with patch("scripts.sync.time.sleep"):
+                mock_run.return_value = MagicMock(returncode=0)
+                result = validate(cfg)
+                assert result.success is True
+                assert "markers: all present" in result.steps_completed
+
+
+def test_push_dry_run(tmp_path):
+    """push(dry_run=True) should validate but not actually push."""
+    cfg = _make_config(tmp_path)
+    markers = tmp_path / ".preset-toolkit" / "markers.txt"
+    markers.write_text("")
+    ds_dir = tmp_path / "sync" / "assets" / "datasets" / "db"
+    ds_dir.mkdir(parents=True)
+    with patch("scripts.sync._ensure_sup", return_value=True):
+        with patch("subprocess.run") as mock_run:
+            with patch("scripts.sync.time.sleep"):
+                mock_run.return_value = MagicMock(returncode=0)
+                result = push(cfg, dry_run=True)
+                assert result.success is True
+                assert any("dry-run" in s for s in result.steps_completed)
