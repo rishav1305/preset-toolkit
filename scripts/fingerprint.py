@@ -76,4 +76,7 @@ def load_fingerprint(path: Path) -> Optional[Fingerprint]:
     parts = text.split()
     if len(parts) != 2:
         return None
-    return Fingerprint(hash=parts[0], sql_length=int(parts[1]))
+    try:
+        return Fingerprint(hash=parts[0], sql_length=int(parts[1]))
+    except (ValueError, IndexError):
+        return None

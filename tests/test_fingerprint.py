@@ -78,3 +78,19 @@ def test_check_markers_empty_yaml(tmp_path):
     from scripts.fingerprint import check_markers
     result = check_markers(empty, markers)
     assert result.all_present is False
+
+
+def test_load_fingerprint_malformed(tmp_path):
+    """Malformed fingerprint file should return None, not crash."""
+    from scripts.fingerprint import load_fingerprint
+    fp_file = tmp_path / "fp"
+    fp_file.write_text("only_one_field")
+    assert load_fingerprint(fp_file) is None
+
+
+def test_load_fingerprint_non_numeric_length(tmp_path):
+    """Non-numeric SQL length should return None."""
+    from scripts.fingerprint import load_fingerprint
+    fp_file = tmp_path / "fp"
+    fp_file.write_text("abc123 not_a_number")
+    assert load_fingerprint(fp_file) is None
