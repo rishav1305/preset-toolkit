@@ -70,6 +70,33 @@ def test_push_catches_connect_error(tmp_path):
             assert "ConnectError" in result.error or "offline" in result.error
 
 
+def test_auth_malformed_json_returns_empty_headers(tmp_path):
+    """_get_auth_headers should return {} when auth endpoint returns non-JSON."""
+    cfg = _make_push_config(tmp_path)
+    mock_resp = MagicMock()
+    mock_resp.json.side_effect = ValueError("No JSON")
+    with patch.dict(os.environ, {"PRESET_API_TOKEN": "tok", "PRESET_API_SECRET": "sec"}):
+        with patch("scripts.push_dashboard.resilient_request", return_value=mock_resp):
+            from scripts.push_dashboard import _get_auth_headers
+            headers = _get_auth_headers(cfg)
+            assert headers == {}
+
+
+def test_workspace_url_https_warning(tmp_path, caplog):
+    """Warn if workspace_url does not use HTTPS."""
+    import logging
+    cfg = _make_push_config(tmp_path)
+    cfg._data["workspace"]["url"] = "http://insecure.preset.io"
+    with patch.dict(os.environ, {"PRESET_API_TOKEN": "tok", "PRESET_API_SECRET": "sec"}):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"access_token": "a.b.c"}
+        with patch("scripts.push_dashboard.resilient_request", return_value=mock_resp):
+            from scripts.push_dashboard import _get_auth_headers
+            with caplog.at_level(logging.WARNING, logger="preset_toolkit.push_dashboard"):
+                headers = _get_auth_headers(cfg)
+            assert any("HTTPS" in r.message or "https" in r.message.lower() for r in caplog.records)
+
+
 def test_sanitize_strips_secrets():
     from scripts.push_dashboard import _sanitize
     assert "REDACTED" in _sanitize('token= abc123 something')

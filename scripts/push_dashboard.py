@@ -33,6 +33,7 @@ except ImportError:
 from scripts.config import ToolkitConfig
 from scripts.http import resilient_request
 from scripts.logger import get_logger
+from scripts.telemetry import get_telemetry
 
 log = get_logger("push_dashboard")
 
@@ -82,15 +83,25 @@ def _get_auth_headers(config: ToolkitConfig) -> dict:
     token, secret = _get_credentials(config)
     if not token:
         return {}
+    # Warn on non-HTTPS
+    if config.workspace_url and not config.workspace_url.startswith("https://"):
+        log.warning("workspace_url uses HTTP, not HTTPS — credentials sent in plaintext")
     # Exchange API token for JWT via Preset's auth endpoint
     login_path = config.get("api.login_path", "/api/v1/security/login")
     auth_url = f"{config.workspace_url.rstrip('/')}{login_path}"
-    resp = resilient_request("POST", auth_url, json={
-        "username": token,
-        "password": secret,
-        "provider": "db",
-    })
-    jwt = resp.json().get("access_token", "")
+    try:
+        resp = resilient_request("POST", auth_url, json={
+            "username": token,
+            "password": secret,
+            "provider": "db",
+        })
+        jwt = resp.json().get("access_token", "")
+    except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException) as e:
+        log.error("Auth exchange failed: %s", type(e).__name__)
+        return {}
+    except (ValueError, KeyError) as e:
+        log.error("Auth response malformed: %s", e)
+        return {}
     if not jwt:
         log.error("Auth exchange returned empty JWT")
         return {}
@@ -154,10 +165,14 @@ def push_css_and_position(
     if position_json is not None:
         payload["position_json"] = position_json
 
+    t = get_telemetry(config._path)
     try:
-        resp = resilient_request("PUT", url, headers=headers, json=payload)
+        with t.timed("push_css", css_length=len(css), has_position=position_json is not None):
+            resp = resilient_request("PUT", url, headers=headers, json=payload)
         return PushResult(success=True, css_changed=True, position_changed=position_json is not None)
     except httpx.HTTPStatusError as e:
+        t.track_error("push_css", "http_error", f"HTTP {e.response.status_code}")
         return PushResult(success=False, error=f"HTTP {e.response.status_code}: {_sanitize(e.response.text)}")
     except (httpx.ConnectError, httpx.TimeoutException) as e:
+        t.track_error("push_css", type(e).__name__, str(e))
         return PushResult(success=False, error=f"{type(e).__name__}: {e}")
