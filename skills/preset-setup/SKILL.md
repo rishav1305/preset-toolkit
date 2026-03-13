@@ -5,7 +5,9 @@ description: "First-time project wizard for preset-toolkit -- creates config, se
 
 # Setup Wizard
 
-You are the first-time setup wizard for preset-toolkit. Walk the user through project initialization with minimal questions -- only ask about business-level details, auto-resolve everything technical.
+You are the first-time setup wizard for preset-toolkit. Walk the user through project initialization with minimal questions -- auto-resolve everything technical.
+
+**SPEED MANDATE:** Complete setup in ≤ 4 tool calls after gathering user input. Batch operations into single Bash calls. Never retry failed installs with different package managers -- just report what's missing.
 
 ## Conversation Principles (MANDATORY)
 
@@ -17,163 +19,136 @@ You are the first-time setup wizard for preset-toolkit. Walk the user through pr
 - Infrastructure, server details, environment setup
 
 **ONLY ask about:**
-- Business intent: "What change do you want to make?"
-- Logic validation: "Revenue = Ads + Subs. Is that correct?"
-- Data correctness: "The current value is $3M. Does that look right?"
-- Visual specifics: "Should the label say 'X' or 'Y'?"
-- Ownership clarity: "This tile is in Bob's section. Notify him?"
-- Approval gates: "Here's what changes. Push it?"
+- "What dashboard are you working on?" (name)
+- "What's your Preset workspace URL?" (or full dashboard URL)
+- Dashboard ID (only if not extractable from the URL)
 
-## Step 1: Gather Business Context
+## Step 1: Gather Business Context (1 message)
 
-Ask exactly two questions:
+Ask exactly two questions in a single message:
 
-1. **"What dashboard are you working on?"** -- Get the name (e.g., "Weekly Consumer Business Metrics").
-2. **"What's your Preset workspace URL?"** -- (e.g., `https://834639b2.us2a.app.preset.io`). If the user provides a full dashboard URL like `https://xxx.us2a.app.preset.io/superset/dashboard/76/`, extract the workspace URL and dashboard ID from it.
+1. **"What dashboard are you working on?"** -- Get the name.
+2. **"What's your Preset workspace URL?"** -- If the user provides a full dashboard URL like `https://xxx.us2a.app.preset.io/superset/dashboard/76/`, extract workspace URL AND dashboard ID from it (skip the ID question).
 
-## Step 2: Auto-Detect Dashboard ID
+Extract workspace ID from the URL subdomain (e.g., `834639b2` from `https://834639b2.us2a.app.preset.io`).
 
-- If the user provided a full dashboard URL, extract the numeric ID from the path (e.g., `/dashboard/76/` -> ID 76).
-- If they only provided the workspace URL, ask: **"What's the dashboard ID? (It's the number in the dashboard URL)"**
-- Extract the workspace ID from the URL subdomain (e.g., `834639b2` from `https://834639b2.us2a.app.preset.io`).
+## Step 2: Create Everything (1 Bash call)
 
-## Step 3: Create Directory Structure
-
-Create the `.preset-toolkit/` directory and all required files:
+Run ALL of this in a single Bash command:
 
 ```bash
-mkdir -p .preset-toolkit/.secrets
-mkdir -p .preset-toolkit/baselines
-mkdir -p .preset-toolkit/screenshots
+# Directories
+mkdir -p .preset-toolkit/.secrets .preset-toolkit/baselines .preset-toolkit/screenshots sync
+
+# Detect environment
+GIT_EMAIL=$(git config user.email 2>/dev/null || echo "")
+TOKEN_STATUS=$([ -n "$PRESET_API_TOKEN" ] && echo "SET" || echo "UNSET")
+SECRET_STATUS=$([ -n "$PRESET_API_SECRET" ] && echo "SET" || echo "UNSET")
+SYNC_FOLDER=$(ls -d *-sync/ 2>/dev/null | head -1 || echo "sync")
+PIP_AVAILABLE=$(command -v pip3 >/dev/null 2>&1 && echo "yes" || echo "no")
+
+echo "GIT_EMAIL=$GIT_EMAIL"
+echo "TOKEN=$TOKEN_STATUS"
+echo "SECRET=$SECRET_STATUS"
+echo "SYNC_FOLDER=${SYNC_FOLDER:-sync}"
+echo "PIP=$PIP_AVAILABLE"
+echo "DETECT_DONE"
 ```
 
-## Step 4: Generate Config Files
+## Step 3: Write Config Files (1 tool call per file, parallel)
 
-Read the templates from the plugin's `templates/` directory and fill in the user's values:
+Write all config files in parallel using the Write tool. Use the detected values from Step 2.
 
-1. **`.preset-toolkit/config.yaml`** -- Copy from `templates/config.yaml`, replacing:
-   - `{{workspace_url}}` with the user's workspace URL
-   - `{{workspace_id}}` with the extracted workspace ID
-   - `{{dashboard_id}}` with the dashboard ID
-   - `{{dashboard_name}}` with the dashboard name
-   - `{{user_email}}` with the user's git email (auto-detect from `git config user.email`)
+### `.preset-toolkit/config.yaml`
+```yaml
+version: 1
 
-2. **`.preset-toolkit/markers.txt`** -- Copy from `templates/markers.txt` (empty template with instructions).
+workspace:
+  url: "{{workspace_url}}"
+  id: "{{workspace_id}}"
 
-3. **`.preset-toolkit/ownership.yaml`** -- Copy from `templates/ownership.yaml` (template with examples).
+dashboard:
+  id: {{dashboard_id}}
+  name: "{{dashboard_name}}"
 
-4. **`.preset-toolkit/smoke.json`** -- Copy from `templates/smoke.json`, replacing workspace_id.
+sync:
+  folder: "{{sync_folder}}"
 
-## Step 5: Set Up Auth
+screenshots:
+  folder: "screenshots"
+  navigation_timeout: 60
 
-Check for Preset API credentials:
-
-```bash
-echo "PRESET_API_TOKEN=${PRESET_API_TOKEN:+SET}"
-echo "PRESET_API_SECRET=${PRESET_API_SECRET:+SET}"
+validation:
+  markers_file: ".preset-toolkit/markers.txt"
 ```
 
-- If both are SET: Good, tell the user "Auth configured via environment variables."
-- If not set: Tell the user:
-  ```
-  Set your Preset API credentials as environment variables:
-
-    export PRESET_API_TOKEN="your-api-token"
-    export PRESET_API_SECRET="your-api-secret"
-
-  Get these from Preset: Settings > API Keys.
-
-  Alternatively, create .preset-toolkit/.secrets/keys.txt with:
-    PRESET_API_TOKEN=your-token
-    PRESET_API_SECRET=your-secret
-  ```
-
-## Step 6: Install Dependencies & Verify sup CLI
-
-Run the dependency checker to auto-install everything:
-
-```python
-from scripts.deps import ensure_core, ensure_sup_cli
-
-# Install core Python packages (PyYAML, Pillow, httpx) if missing
-failures = ensure_core()
-if failures:
-    print(f"WARNING: Failed to install: {', '.join(failures)}")
-
-# Install preset-cli (sup) if missing
-if not ensure_sup_cli():
-    print("WARNING: Could not install preset-cli. Install manually: pip install preset-cli")
+### `.preset-toolkit/markers.txt`
+```
+# Required content markers — one per line.
+# Push is blocked if any marker is missing from the dataset SQL.
+# Add key labels that MUST be present in the dashboard.
 ```
 
-- If all installs succeed: Print versions and continue.
-- If any install fails: Print the error, but continue setup. The user can resolve later.
-
-## Step 7: Check for Existing Sync Folder
-
-Look for any existing sync folder in the project directory:
-
-```bash
-ls -d *-sync/ 2>/dev/null || echo "NO_SYNC_FOLDER"
+### `.preset-toolkit/ownership.yaml`
+```yaml
+# Section ownership — advisory warnings when editing outside your sections.
+sections: {}
 ```
 
-- If a sync folder exists: Update `config.yaml` to use it as `sync_folder`. Tell the user which folder was detected.
-- If no sync folder: The first `sup sync pull` will create one. Use `"sync"` as the default folder name in config.
-
-## Step 8: Initial Pull (if auth is ready)
-
-If auth credentials are available:
-
-```python
-from scripts.sync import pull
-from scripts.config import ToolkitConfig
-
-config = ToolkitConfig.discover()
-result = pull(config)
+### `.preset-toolkit/smoke.json`
+```json
+{"workspace_id": "{{workspace_id}}", "sync_folder": "{{sync_folder}}", "files": [], "charts": []}
 ```
 
-Or via CLI:
-
-```bash
-sup sync run <sync_folder> --pull-only --force
-```
-
-Then run dedup on the pulled assets.
-
-## Step 9: Update .gitignore
-
-Check if `.gitignore` exists at the project root. If it does, append preset-toolkit entries (if not already present). If it does not, create one from `templates/gitignore.template`.
-
-Entries to ensure are present:
+### `.gitignore` (append or create)
 ```
 .preset-toolkit/.secrets/
 .preset-toolkit/.last-push-fingerprint
 screenshots/
+*.pyc
+__pycache__/
+.venv/
 ```
 
-## Step 10: Print Summary
+## Step 4: Install Dependencies (1 Bash call, only if pip available)
+
+**If PIP=yes from Step 2:**
+```bash
+pip3 install -q PyYAML Pillow httpx preset-cli 2>&1 | tail -3 && echo "DEPS_OK" || echo "DEPS_PARTIAL"
+```
+
+**If PIP=no:** Skip entirely. Report missing deps in the summary. Do NOT try pip, pip3, python3 -m pip, apt-get, or sudo. Just note it.
+
+## Step 5: Print Summary (immediately)
 
 ```
 Setup complete!
 
-  Dashboard: {{dashboard_name}} (ID: {{dashboard_id}})
-  Workspace: {{workspace_url}}
-  Sync folder: {{sync_folder}}
-  Auth: {{auth_status}}
+  Dashboard:    {{dashboard_name}} (ID: {{dashboard_id}})
+  Workspace:    {{workspace_url}}
+  Workspace ID: {{workspace_id}}
+  Sync folder:  {{sync_folder}}
+  Auth:         {{Configured via environment variables ✓ | NOT SET — see below}}
 
   Files created:
     .preset-toolkit/config.yaml
     .preset-toolkit/markers.txt
     .preset-toolkit/ownership.yaml
     .preset-toolkit/smoke.json
+    .gitignore
+
+  {{if deps missing: ⚠ Dependencies needed: pip install PyYAML Pillow httpx preset-cli}}
 
   Next steps:
-    /preset pull      -- Pull latest dashboard state
-    /preset check     -- Run health checks
-    /preset push      -- Validate and push changes
+    /preset pull      — Pull latest dashboard state from Preset
+    /preset check     — Run health checks
+    /preset push      — Validate and push changes
 ```
+
+Do NOT attempt an initial pull during setup. Setup only creates config files. The user runs `/preset pull` when ready.
 
 ## Error Recovery
 
-- If `sup sync pull` fails: Warn that pull failed (likely auth issue), but still complete setup. The user can pull later with `/preset pull`.
-- If directory creation fails: Check permissions and suggest running from the project root.
-- If git email detection fails: Use the user's email from the Preset workspace URL domain or ask directly.
+- If directory creation fails: Check permissions, suggest running from the project root.
+- If pip install partially fails: Report what failed, continue.
+- Never retry installs with different methods. Report once and move on.
