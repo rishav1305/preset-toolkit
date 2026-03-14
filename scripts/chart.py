@@ -218,3 +218,56 @@ def get_chart_data(
         rows=data.get("data", []),
         row_count=data.get("rowcount", 0),
     )
+
+
+def pull_charts(
+    config: ToolkitConfig,
+    chart_id: Optional[int] = None,
+    chart_ids: Optional[List[int]] = None,
+    name: Optional[str] = None,
+    mine: bool = False,
+    modified_after: Optional[str] = None,
+    limit: Optional[int] = None,
+    skip_dependencies: bool = False,
+    overwrite: bool = True,
+    assets_folder: Optional[str] = None,
+) -> ChartPullResult:
+    """Pull charts from Preset workspace. Uses sup chart pull --json."""
+    if chart_id is not None and chart_ids is not None:
+        raise ValueError("Cannot specify both chart_id and chart_ids")
+
+    args = ["chart", "pull", "--json"]
+
+    if chart_id is not None:
+        args.extend(["--chart-id", str(chart_id)])
+    if chart_ids is not None:
+        args.extend(["--chart-ids", ",".join(str(cid) for cid in chart_ids)])
+    if name is not None:
+        args.extend(["--name", name])
+    if mine:
+        args.append("--mine")
+    if modified_after is not None:
+        args.extend(["--modified-after", modified_after])
+    if limit is not None:
+        args.extend(["--limit", str(limit)])
+    if skip_dependencies:
+        args.append("--skip-dependencies")
+    if not overwrite:
+        args.append("--no-overwrite")
+    if assets_folder is not None:
+        args.extend(["--assets-folder", assets_folder])
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return ChartPullResult(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return ChartPullResult(success=False, error=f"JSON parse error: {e}")
+
+    return ChartPullResult(
+        success=True,
+        charts_pulled=data.get("charts_pulled", 0),
+        files=data.get("files", []),
+    )

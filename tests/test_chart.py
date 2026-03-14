@@ -17,6 +17,7 @@ from scripts.chart import (
     get_chart_info,
     get_chart_sql,
     get_chart_data,
+    pull_charts,
 )
 from scripts.config import ToolkitConfig
 
@@ -320,3 +321,94 @@ def test_get_chart_data_failure(tmp_path):
 
     assert result.success is False
     assert "data fetch error" in result.error
+
+
+# ── pull_charts ───────────────────────────────────────────────────
+
+def test_pull_charts_single(tmp_path):
+    """pull_charts with a single chart_id passes --chart-id flag."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "charts_pulled": 1,
+        "files": ["charts/revenue.yaml"],
+    })
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = pull_charts(cfg, chart_id=2085)
+
+    assert result.success is True
+    assert result.charts_pulled == 1
+    assert result.files == ["charts/revenue.yaml"]
+
+    args = mock_sup.call_args[0][0]
+    assert "--chart-id" in args
+    assert "2085" in args
+
+
+def test_pull_charts_multiple(tmp_path):
+    """pull_charts with chart_ids passes --chart-ids flag."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "charts_pulled": 2,
+        "files": ["charts/a.yaml", "charts/b.yaml"],
+    })
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = pull_charts(cfg, chart_ids=[2085, 2088])
+
+    assert result.success is True
+    assert result.charts_pulled == 2
+    assert len(result.files) == 2
+
+    args = mock_sup.call_args[0][0]
+    assert "--chart-ids" in args
+    assert "2085,2088" in args
+
+
+def test_pull_charts_mutual_exclusion(tmp_path):
+    """pull_charts raises ValueError if both chart_id and chart_ids provided."""
+    cfg = _make_chart_config(tmp_path)
+    with pytest.raises(ValueError, match="chart_id.*chart_ids"):
+        pull_charts(cfg, chart_id=2085, chart_ids=[2085, 2088])
+
+
+def test_pull_charts_with_filters(tmp_path):
+    """pull_charts passes all filter flags correctly."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({"charts_pulled": 0, "files": []})
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        pull_charts(
+            cfg,
+            name="Revenue",
+            mine=True,
+            modified_after="2026-01-01",
+            limit=5,
+            skip_dependencies=True,
+            overwrite=False,
+            assets_folder="/tmp/assets",
+        )
+
+    args = mock_sup.call_args[0][0]
+    assert "--name" in args
+    assert "Revenue" in args
+    assert "--mine" in args
+    assert "--modified-after" in args
+    assert "2026-01-01" in args
+    assert "--limit" in args
+    assert "5" in args
+    assert "--skip-dependencies" in args
+    assert "--no-overwrite" in args
+    assert "--assets-folder" in args
+    assert "/tmp/assets" in args
+
+
+def test_pull_charts_failure(tmp_path):
+    """pull_charts returns error on sup failure."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="pull failed")
+        result = pull_charts(cfg)
+
+    assert result.success is False
+    assert "pull failed" in result.error
