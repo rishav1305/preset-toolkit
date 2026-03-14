@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
@@ -47,6 +48,26 @@ class SyncResult:
     steps_completed: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     error: str = ""
+
+
+class ChangeAction(str, Enum):
+    """Valid actions for an asset change."""
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+    NO_CHANGE = "no_change"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass
+class AssetChange:
+    """A single asset that would be created, updated, deleted, or unchanged."""
+    asset_type: str         # "chart", "dataset", "dashboard"
+    name: str
+    action: ChangeAction
+    details: str = ""       # optional human-readable context
 
 
 def _find_sup() -> Optional[str]:

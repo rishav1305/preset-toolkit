@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import yaml
 import scripts.sync as sync_mod
-from scripts.sync import _run_sup, SyncResult, SupNotFoundError, CLINotFoundError, pull, validate, push
+from scripts.sync import _run_sup, SyncResult, SupNotFoundError, CLINotFoundError, pull, validate, push, ChangeAction, AssetChange
 from scripts.config import ToolkitConfig
 
 
@@ -147,3 +147,45 @@ def test_push_dry_run(tmp_path):
             result = push(cfg, dry_run=True)
             assert result.success is True
             assert any("dry-run" in s for s in result.steps_completed)
+
+
+# ---------------------------------------------------------------------------
+# Task 1: ChangeAction enum and AssetChange dataclass
+# ---------------------------------------------------------------------------
+
+def test_change_action_values():
+    """ChangeAction enum has expected string values."""
+    assert ChangeAction.CREATE == "create"
+    assert ChangeAction.UPDATE == "update"
+    assert ChangeAction.DELETE == "delete"
+    assert ChangeAction.NO_CHANGE == "no_change"
+
+
+def test_change_action_is_string():
+    """ChangeAction values work as plain strings."""
+    assert isinstance(ChangeAction.CREATE, str)
+    assert f"Action: {ChangeAction.CREATE}" == "Action: create"
+
+
+def test_asset_change_creation():
+    """AssetChange dataclass holds structured change info."""
+    change = AssetChange(
+        asset_type="chart",
+        name="Revenue Chart",
+        action=ChangeAction.CREATE,
+    )
+    assert change.asset_type == "chart"
+    assert change.name == "Revenue Chart"
+    assert change.action == ChangeAction.CREATE
+    assert change.details == ""
+
+
+def test_asset_change_with_details():
+    """AssetChange accepts optional details."""
+    change = AssetChange(
+        asset_type="dataset",
+        name="Main_Dataset",
+        action=ChangeAction.UPDATE,
+        details="SQL query modified",
+    )
+    assert change.details == "SQL query modified"
