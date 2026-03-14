@@ -70,6 +70,19 @@ class AssetChange:
     details: str = ""       # optional human-readable context
 
 
+@dataclass
+class DryRunResult:
+    """Structured output from validate() with parsed dry-run diff."""
+    success: bool
+    changes: List[AssetChange]
+    validation_passed: bool
+    markers_passed: bool
+    raw_output: str
+    steps_completed: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    error: str = ""
+
+
 def _find_sup() -> Optional[str]:
     """Find the sup CLI binary. Checks .venv first, then system PATH."""
     venv_sup = Path(".venv/bin/sup")

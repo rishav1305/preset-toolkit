@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import yaml
 import scripts.sync as sync_mod
-from scripts.sync import _run_sup, SyncResult, SupNotFoundError, CLINotFoundError, pull, validate, push, ChangeAction, AssetChange
+from scripts.sync import _run_sup, SyncResult, SupNotFoundError, CLINotFoundError, pull, validate, push, ChangeAction, AssetChange, DryRunResult
 from scripts.config import ToolkitConfig
 
 
@@ -189,3 +189,73 @@ def test_asset_change_with_details():
         details="SQL query modified",
     )
     assert change.details == "SQL query modified"
+
+
+# ---------------------------------------------------------------------------
+# Task 2: DryRunResult dataclass
+# ---------------------------------------------------------------------------
+
+def test_dry_run_result_creation():
+    """DryRunResult holds structured validate output."""
+    result = DryRunResult(
+        success=True,
+        changes=[],
+        validation_passed=True,
+        markers_passed=True,
+        raw_output="some sup output",
+    )
+    assert result.success is True
+    assert result.changes == []
+    assert result.validation_passed is True
+    assert result.markers_passed is True
+    assert result.raw_output == "some sup output"
+    assert result.steps_completed == []
+    assert result.warnings == []
+    assert result.error == ""
+
+
+def test_dry_run_result_with_changes():
+    """DryRunResult holds a list of AssetChange objects."""
+    changes = [
+        AssetChange("chart", "Revenue", ChangeAction.UPDATE),
+        AssetChange("dataset", "Main", ChangeAction.NO_CHANGE),
+    ]
+    result = DryRunResult(
+        success=True,
+        changes=changes,
+        validation_passed=True,
+        markers_passed=True,
+        raw_output="",
+    )
+    assert len(result.changes) == 2
+    assert result.changes[0].action == ChangeAction.UPDATE
+
+
+def test_dry_run_result_has_steps_completed():
+    """DryRunResult preserves steps_completed for backward compat with SyncResult."""
+    result = DryRunResult(
+        success=True,
+        changes=[],
+        validation_passed=True,
+        markers_passed=True,
+        raw_output="",
+        steps_completed=["validate", "markers: all present", "dry-run"],
+    )
+    assert "validate" in result.steps_completed
+    assert len(result.steps_completed) == 3
+
+
+def test_dry_run_result_partial_failure():
+    """DryRunResult captures partial failure state."""
+    result = DryRunResult(
+        success=False,
+        changes=[],
+        validation_passed=True,
+        markers_passed=False,
+        raw_output="",
+        error="Missing markers in ds.yaml: revenue_total",
+    )
+    assert result.success is False
+    assert result.validation_passed is True
+    assert result.markers_passed is False
+    assert "Missing markers" in result.error
