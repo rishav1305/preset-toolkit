@@ -23,7 +23,7 @@ test -f .preset-toolkit/config.yaml && echo "CONFIG_EXISTS" || echo "NO_CONFIG"
 If no argument was provided, show this menu:
 
 ```
-Preset Toolkit v0.5.0 — Dashboard Management
+Preset Toolkit v0.7.0 — Dashboard Management
 
   #   Command       Invoke with
   ──  ──────────    ─────────────────────────────────
@@ -35,6 +35,7 @@ Preset Toolkit v0.5.0 — Dashboard Management
   6.  diff          /preset-toolkit:preset-visual-regression
   7.  status        (shown inline below)
   8.  help          /preset-toolkit:preset-troubleshoot
+  9.  chart         /preset-toolkit:preset-chart
 
 Type a number, name, or describe what you want.
 ```
@@ -59,6 +60,7 @@ Parse the user's argument (if provided) and route to the matching skill:
 | `execute`, `run plan`, `apply` | `preset-toolkit:preset-executing-plans` |
 | `test`, `tdd`, `verify` | `preset-toolkit:preset-testing` |
 | `review`, `code review`, `checklist` | `preset-toolkit:preset-code-review` |
+| `chart`, `charts`, `list charts`, `chart info`, `chart sql`, `chart data` | `preset-toolkit:preset-chart` |
 
 For `status`, show a quick summary without invoking a sub-skill:
 
@@ -79,6 +81,11 @@ If the user provides a free-form description instead of a command name, map thei
 - "Check if anything broke" -> `preset-toolkit:preset-visual-regression`
 - "Review my changes" -> `preset-toolkit:preset-code-review`
 - "Run the daily checkpoint" -> `preset-toolkit:preset-checkpoint`
+- "List my charts" -> `preset-toolkit:preset-chart`
+- "Show chart 2085" -> `preset-toolkit:preset-chart`
+- "What SQL does chart 2085 use?" -> `preset-toolkit:preset-chart`
+- "Get data from chart 2088" -> `preset-toolkit:preset-chart`
+- "Pull chart 2085" -> `preset-toolkit:preset-chart`
 
 If ambiguous, ask: "Did you mean X or Y?" -- but only between two options, never more.
 
