@@ -125,7 +125,7 @@ When discussing changes to YAML files, always assume the safe edit pattern will 
 2. Modify the relevant field
 3. Raw string replacement to write back (never `yaml.dump()`)
 
-This preserves Jinja templates (`{{ }}`), YAML formatting, and special characters. See `references/preset-cli.md` for details on why `yaml.dump()` is dangerous.
+This preserves Jinja templates (`{{ }}`), YAML formatting, and special characters. See `references/sup-cli.md` for details on why `yaml.dump()` is dangerous.
 
 ## Reference: CSS Best Practices
 

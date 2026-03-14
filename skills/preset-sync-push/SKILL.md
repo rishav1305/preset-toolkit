@@ -156,7 +156,7 @@ position = dash_data.get("position_json", None)
 result = push_css_and_position(config, css, position)
 ```
 
-This is necessary because `sup sync push` overwrites CSS and position_json. The REST API push restores them. See `references/preset-cli.md` for why this two-step push exists.
+This is necessary because `sup sync push` overwrites CSS and position_json. The REST API push restores them. See `references/sup-cli.md` for why this two-step push exists.
 
 ### Step 8: Save Fingerprint
 

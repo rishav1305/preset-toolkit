@@ -89,7 +89,7 @@ mkdir my-dashboard && cd my-dashboard
 /preset-toolkit:preset push
 ```
 
-Setup handles everything: virtual environment, dependencies (`superset-sup`, `preset-cli`, Playwright + Chromium), auth configuration, and `sync_config.yml` creation.
+Setup handles everything: virtual environment, dependencies (`superset-sup`, Playwright + Chromium), auth configuration, and `sync_config.yml` creation.
 
 ---
 
@@ -197,13 +197,13 @@ shared_datasets:
 
 The plugin uses two CLIs with separate auth:
 
-**sup CLI** (for sync operations — pull/push/validate):
+**sup CLI** (for all sync operations — pull/push/validate/CSS):
 ```bash
 # Interactive setup — stores credentials locally
 .venv/bin/sup config
 ```
 
-**Preset API** (for CSS push via REST API):
+**Environment variables** (for REST API CSS push):
 ```bash
 export PRESET_API_TOKEN="your-token"
 export PRESET_API_SECRET="your-secret"
@@ -327,7 +327,6 @@ Installed automatically by setup into a project-local `.venv/`:
 | Package | Purpose |
 |---------|---------|
 | `superset-sup` | `sup` CLI — sync pull/push/validate |
-| `preset-cli` | Preset Manager API CLI |
 | `playwright` + Chromium | Browser-based screenshot capture |
 | `PyYAML` | YAML parsing |
 | `Pillow` | Image comparison for visual regression |

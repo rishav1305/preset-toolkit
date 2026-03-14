@@ -1,27 +1,24 @@
-# Preset CLI (`sup`) Reference
+# sup CLI Reference
+
+The `sup` CLI (pip package: `superset-sup`) is the sync tool for Preset dashboards.
 
 ## Installation
 
 ```bash
-pip install preset-cli
+pip install superset-sup
 ```
 
 Verify installation:
 
 ```bash
-sup version
+sup --version
 ```
 
 ## Authentication
 
-Run `sup connect` to authenticate. It prompts for:
+Run `sup config` to authenticate. It prompts for workspace credentials.
 
-1. **Team URL** — e.g., `https://834639b2.us2a.app.preset.io`
-2. **API token** — from Preset workspace settings > API Keys
-3. **API secret** — paired with the token above
-
-Credentials are stored in `.sup/keys.txt` in the working directory. This file
-contains the token and secret in plain text. Never commit it to version control.
+Credentials are stored locally by the sup CLI. Never commit credentials to version control.
 
 ## Core Commands
 

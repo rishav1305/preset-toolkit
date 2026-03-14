@@ -44,7 +44,7 @@ grep -rn 'yaml\.dump' <changed_files>
 ```
 
 - PASS: No `yaml.dump()` found in any changes.
-- FAIL: Found `yaml.dump()` usage. Must use raw string replacement instead. See `references/preset-cli.md`.
+- FAIL: Found `yaml.dump()` usage. Must use raw string replacement instead. See `references/sup-cli.md`.
 
 ### 2. Jinja Templates Preserved
 

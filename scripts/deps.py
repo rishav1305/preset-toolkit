@@ -112,9 +112,6 @@ def ensure_sup_cli() -> bool:
     return False
 
 
-# Backward compatibility aliases
-_find_preset_cli = _find_sup_binary
-ensure_preset_cli = ensure_sup_cli
 
 
 def ensure_playwright() -> bool:

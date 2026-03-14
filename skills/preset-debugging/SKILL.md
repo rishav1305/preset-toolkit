@@ -99,7 +99,7 @@ remote_css = remote.get("css", "")
 - Use `/preset push` which handles both automatically.
 - For CSS-only updates: `/preset push --css-only`.
 
-See `references/preset-cli.md` for the explanation of this two-step push.
+See `references/sup-cli.md` for the explanation of this two-step push.
 
 ### 4. Pull Returns Stale Data
 
@@ -189,7 +189,7 @@ Compare against a known good version from git.
 - Restore the file from git: `git checkout -- <file>`
 - Re-apply the edit using the safe YAML edit pattern (raw string replacement, NEVER `yaml.dump()`).
 
-See `references/preset-cli.md` for the safe YAML edit pattern.
+See `references/sup-cli.md` for the safe YAML edit pattern.
 
 ### 8. Row Limit Mismatch
 

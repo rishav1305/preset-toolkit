@@ -97,7 +97,7 @@ Every plan MUST include these steps. They are non-negotiable:
 
 ## Safe YAML Edit Pattern
 
-All dataset SQL edits MUST use this pattern (referenced from `references/preset-cli.md`):
+All dataset SQL edits MUST use this pattern (referenced from `references/sup-cli.md`):
 
 ```python
 import yaml

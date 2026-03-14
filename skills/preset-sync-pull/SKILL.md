@@ -36,7 +36,7 @@ Pull the latest dashboard state from Preset, deduplicate chart/dataset files, an
 
 ### Step 1: Preflight Check (1 Bash call)
 
-Verify venv, preset-cli, and key deps are available. Do NOT install anything — just check and fail fast.
+Verify venv, sup CLI, and key deps are available. Do NOT install anything — just check and fail fast.
 
 ```bash
 test -f .venv/bin/python3 && test -f .venv/bin/sup && .venv/bin/python3 -c "import yaml, PIL, httpx; print('DEPS_OK')" && .venv/bin/sup --version && echo "PREFLIGHT_OK" || echo "PREFLIGHT_FAILED"

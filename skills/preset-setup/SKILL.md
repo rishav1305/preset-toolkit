@@ -188,7 +188,7 @@ Setup complete!
   Workspace ID: {{workspace_id}}
   Sync folder:  sync/
   Auth:         {{Configured | Set up in .preset-toolkit/.secrets/keys.env}}
-  Venv:         .venv/ with sup CLI + preset-cli + playwright
+  Venv:         .venv/ with sup CLI + playwright
 
   Files created:
     .preset-toolkit/config.yaml

@@ -66,11 +66,11 @@ VENV_PY=".venv/bin/python3"
 
 # Install all packages:
 #   superset-sup  → sup CLI (sync run/validate, the actual sync tool)
-#   preset-cli    → preset-cli (export-assets, auth management)
+#   superset-sup handles all sync operations (pull/push/validate)
 #   playwright    → browser automation for screenshots
 #   PyYAML/Pillow/httpx → core libraries
 info "Installing packages..."
-$VENV_PIP install -q PyYAML Pillow httpx superset-sup preset-cli playwright 2>&1 | grep -v "notice" || true
+$VENV_PIP install -q PyYAML Pillow httpx superset-sup playwright 2>&1 | grep -v "notice" || true
 
 # Install Chromium browser for Playwright screenshots
 info "Installing Chromium browser..."
@@ -112,13 +112,6 @@ else
     fi
 fi
 
-# Verify preset-cli (for export-assets fallback)
-if [ -f ".venv/bin/preset-cli" ] && .venv/bin/preset-cli --version >/dev/null 2>&1; then
-    CLI_VER=$(.venv/bin/preset-cli --version 2>&1)
-    ok "preset-cli ($CLI_VER) — verified"
-else
-    warn "preset-cli not verified (non-blocking)"
-fi
 
 # ── Phase 4: Directories ─────────────────────────────────────────────
 

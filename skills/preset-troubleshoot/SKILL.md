@@ -80,7 +80,7 @@ The push command returned an error.
    - Try `sup connect` to re-authenticate.
    - Check that `PRESET_API_TOKEN` and `PRESET_API_SECRET` are set.
 
-4. **Check for JWT intermittent failure.** The `sup` CLI can fail randomly with "Unable to fetch JWT". Retry up to 3 times. If persistent, wait a few minutes and try again. See `references/preset-cli.md` for details.
+4. **Check for JWT intermittent failure.** The `sup` CLI can fail randomly with "Unable to fetch JWT". Retry up to 3 times. If persistent, wait a few minutes and try again. See `references/sup-cli.md` for details.
 
 5. **Check dry-run output.** Run a dry-run to see what would have been pushed:
    ```bash
@@ -152,7 +152,7 @@ Individual tiles show errors, missing data, or wrong formatting.
 
 3. **Check `allow_render_html`.** HTML-rendering charts (e.g., KPI tiles with HTML content) require `allow_render_html: true` in the chart YAML. If missing, HTML is displayed as raw text.
 
-4. **Check Jinja escaping.** If `yaml.dump()` was used instead of string replacement, Jinja templates may be corrupted. Look for escaped curly braces. See `references/preset-cli.md` for the safe YAML edit pattern.
+4. **Check Jinja escaping.** If `yaml.dump()` was used instead of string replacement, Jinja templates may be corrupted. Look for escaped curly braces. See `references/sup-cli.md` for the safe YAML edit pattern.
 
 **Fix:** Edit the relevant chart or dataset YAML to fix the specific issue, then push.
 
