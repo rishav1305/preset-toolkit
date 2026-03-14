@@ -129,7 +129,7 @@ def test_validate_success(tmp_path):
         _yaml.safe_dump({"sql": "SELECT test_marker FROM t"}, f)
     with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             result = validate(cfg)
             assert result.success is True
             assert "markers: all present" in result.steps_completed
@@ -143,7 +143,7 @@ def test_push_dry_run(tmp_path):
     (tmp_path / "sync").mkdir(parents=True)
     with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             result = push(cfg, dry_run=True)
             assert result.success is True
             assert any("dry-run" in s for s in result.steps_completed)
@@ -331,3 +331,97 @@ def test_parse_case_insensitive():
     changes = _parse_dry_run_output(output)
     assert len(changes) == 1
     assert changes[0].action == ChangeAction.CREATE
+
+
+# ---------------------------------------------------------------------------
+# Task 4: validate() returns DryRunResult
+# ---------------------------------------------------------------------------
+
+def test_validate_returns_dry_run_result(tmp_path):
+    """validate() now returns DryRunResult instead of SyncResult."""
+    cfg = _make_config(tmp_path)
+    markers = tmp_path / ".preset-toolkit" / "markers.txt"
+    markers.write_text("test_marker\n")
+    ds_dir = tmp_path / "sync" / "assets" / "datasets" / "db"
+    ds_dir.mkdir(parents=True)
+    import yaml as _yaml
+    with open(ds_dir / "ds.yaml", "w") as f:
+        _yaml.safe_dump({"sql": "SELECT test_marker FROM t"}, f)
+
+    dry_run_output = 'Updating chart "Revenue Overview"\nUpdating dataset "Main_Dataset"'
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
+        with patch("subprocess.run") as mock_run:
+            validate_result = MagicMock(returncode=0, stdout="", stderr="")
+            dry_run_result_mock = MagicMock(returncode=0, stdout=dry_run_output, stderr="")
+            mock_run.side_effect = [validate_result, dry_run_result_mock]
+            result = validate(cfg)
+
+    assert isinstance(result, DryRunResult)
+    assert result.success is True
+    assert result.validation_passed is True
+    assert result.markers_passed is True
+    assert len(result.changes) == 2
+    assert result.raw_output == dry_run_output
+    assert "validate" in result.steps_completed
+    assert "dry-run" in result.steps_completed
+
+
+def test_validate_sup_validate_fails(tmp_path):
+    """validate() returns validation_passed=False when sup validate fails."""
+    cfg = _make_config(tmp_path)
+    (tmp_path / "sync").mkdir(parents=True)
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="YAML error")
+            result = validate(cfg)
+
+    assert isinstance(result, DryRunResult)
+    assert result.success is False
+    assert result.validation_passed is False
+    assert result.markers_passed is False
+    assert result.changes == []
+
+
+def test_validate_markers_fail(tmp_path):
+    """validate() returns markers_passed=False when markers are missing."""
+    cfg = _make_config(tmp_path)
+    markers = tmp_path / ".preset-toolkit" / "markers.txt"
+    markers.write_text("required_marker\n")
+    ds_dir = tmp_path / "sync" / "assets" / "datasets" / "db"
+    ds_dir.mkdir(parents=True)
+    import yaml as _yaml
+    with open(ds_dir / "ds.yaml", "w") as f:
+        _yaml.safe_dump({"sql": "SELECT something_else FROM t"}, f)
+
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            result = validate(cfg)
+
+    assert isinstance(result, DryRunResult)
+    assert result.success is False
+    assert result.validation_passed is True
+    assert result.markers_passed is False
+    assert "Missing markers" in result.error
+
+
+def test_validate_dry_run_command_fails(tmp_path):
+    """validate() handles dry-run command failure after validation and markers pass."""
+    cfg = _make_config(tmp_path)
+    markers = tmp_path / ".preset-toolkit" / "markers.txt"
+    markers.write_text("")
+    (tmp_path / "sync").mkdir(parents=True)
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
+        with patch("subprocess.run") as mock_run:
+            with patch("scripts.sync.time.sleep"):
+                validate_ok = MagicMock(returncode=0, stdout="", stderr="")
+                dry_run_fail = MagicMock(returncode=1, stdout="", stderr="dry-run error")
+                # _run_sup retries up to 3 times; provide enough fail mocks
+                mock_run.side_effect = [validate_ok, dry_run_fail, dry_run_fail, dry_run_fail]
+                result = validate(cfg)
+
+    assert isinstance(result, DryRunResult)
+    assert result.success is False
+    assert result.validation_passed is True
+    assert result.markers_passed is True
+    assert "Dry-run failed" in result.error

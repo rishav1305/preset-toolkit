@@ -230,21 +230,33 @@ def pull(config: ToolkitConfig) -> SyncResult:
     return result
 
 
-def validate(config: ToolkitConfig) -> SyncResult:
-    """Validate sync folder via sup sync validate + check markers."""
+def validate(config: ToolkitConfig) -> DryRunResult:
+    """Validate sync folder via sup sync validate + check markers + dry-run.
+
+    Returns DryRunResult with structured changes from dry-run output.
+    Preserves steps_completed for backward compatibility with push().
+    """
     t = get_telemetry(config._path)
-    result = SyncResult(success=False)
+    result = DryRunResult(
+        success=False,
+        changes=[],
+        validation_passed=False,
+        markers_passed=False,
+        raw_output="",
+    )
     sync_folder = config.sync_folder
 
     with t.timed("validate"):
+        # Step 1: sup sync validate
         r = _run_sup(["sync", "validate", sync_folder])
         if r.returncode != 0:
             result.error = f"Validation failed: {sanitize(r.stderr)}"
             t.track_error("validate", "sup_validate_failed", sanitize(r.stderr))
             return result
+        result.validation_passed = True
         result.steps_completed.append("validate")
 
-        # Marker check
+        # Step 2: Marker check
         markers_file = Path(config.get("validation.markers_file", ".preset-toolkit/markers.txt"))
         if markers_file.exists():
             assets = Path(sync_folder) / "assets"
@@ -256,13 +268,16 @@ def validate(config: ToolkitConfig) -> SyncResult:
                     t.track_error("validate", "missing_markers", result.error)
                     return result
             result.steps_completed.append("markers: all present")
+        result.markers_passed = True
 
-        # Dry-run push
+        # Step 3: Dry-run push
         r = _run_sup(["sync", "run", sync_folder, "--push-only", "--dry-run", "--force"])
         if r.returncode != 0:
             result.error = f"Dry-run failed: {sanitize(r.stderr)}"
             t.track_error("validate", "dry_run_failed", sanitize(r.stderr))
             return result
+        result.raw_output = r.stdout
+        result.changes = _parse_dry_run_output(r.stdout)
         result.steps_completed.append("dry-run")
 
         result.success = True
