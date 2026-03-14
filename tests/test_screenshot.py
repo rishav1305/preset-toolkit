@@ -29,6 +29,15 @@ def test_screenshot_result_dataclass():
     assert r.full_page is None
     assert r.sections == {}
     assert r.error == ""
+    assert r.success is False  # no full_page yet
+
+
+def test_screenshot_result_success():
+    """ScreenshotResult.success should be True when full_page is set and no error."""
+    r = ScreenshotResult(full_page=Path("/tmp/full.png"))
+    assert r.success is True
+    r_err = ScreenshotResult(full_page=Path("/tmp/full.png"), error="oops")
+    assert r_err.success is False
 
 
 def test_screenshot_result_with_error():
@@ -36,6 +45,7 @@ def test_screenshot_result_with_error():
     r = ScreenshotResult(error="Navigation timeout")
     assert r.error == "Navigation timeout"
     assert r.full_page is None
+    assert r.success is False
 
 
 def test_capture_nav_failure_returns_error(tmp_path):

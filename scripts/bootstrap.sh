@@ -72,15 +72,19 @@ head "Dependencies"
 VENV_PIP=".venv/bin/pip"
 VENV_PY=".venv/bin/python3"
 
-# Install all packages in one call
+# Install all packages in one call (core + screenshot + sync)
 info "Installing packages..."
-$VENV_PIP install -q PyYAML Pillow httpx preset-cli 2>&1 | grep -v "notice" || true
+$VENV_PIP install -q PyYAML Pillow httpx preset-cli playwright 2>&1 | grep -v "notice" || true
+
+# Install Chromium browser for Playwright screenshots
+info "Installing Chromium browser..."
+$VENV_PY -m playwright install chromium 2>&1 | tail -1 || true
 
 # Batched verification — single Python call checks all deps at once
 DEP_RESULT=$($VENV_PY -c "
 import json, importlib, importlib.metadata, shutil
 results = {}
-for mod, name in [('yaml','PyYAML'), ('PIL','Pillow'), ('httpx','httpx')]:
+for mod, name in [('yaml','PyYAML'), ('PIL','Pillow'), ('httpx','httpx'), ('playwright','playwright')]:
     try:
         importlib.import_module(mod)
         results[name] = 'ok'
@@ -96,7 +100,7 @@ print(json.dumps(results))
 " 2>/dev/null || echo '{}')
 
 # Parse results
-for pkg in PyYAML Pillow httpx; do
+for pkg in PyYAML Pillow httpx playwright; do
     STATUS=$(echo "$DEP_RESULT" | $VENV_PY -c "import json,sys; d=json.load(sys.stdin); print(d.get('$pkg','fail'))" 2>/dev/null || echo "fail")
     if [ "$STATUS" = "ok" ]; then
         ok "$pkg"

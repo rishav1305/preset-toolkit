@@ -32,53 +32,35 @@ Capture full-page and per-section screenshots of the Preset dashboard using Play
 
 ## Prerequisites
 
-```python
-from scripts.config import ToolkitConfig
-config = ToolkitConfig.discover()
-```
+### Preflight Check (1 Bash call)
 
-### Check Playwright Installation
+Verify venv, playwright, and config all exist. Do NOT install anything.
 
 ```bash
-python -c "from playwright.async_api import async_playwright; print('OK')" 2>/dev/null || echo "PLAYWRIGHT_NOT_INSTALLED"
+test -f .venv/bin/python3 && .venv/bin/python3 -c "from playwright.async_api import async_playwright; print('PLAYWRIGHT_OK')" && test -f .preset-toolkit/config.yaml && echo "PREFLIGHT_OK" || echo "PREFLIGHT_FAILED"
 ```
 
-If not installed:
-
-```bash
-pip install playwright
-playwright install chromium
-```
-
-This requires network access to download the Chromium browser binary.
+If `PREFLIGHT_FAILED`: Stop and tell the user: "Dependencies missing. Run `/preset-toolkit:preset-setup` to install them."
 
 ### Check Storage State
 
-```python
-from pathlib import Path
-
-storage_state = config.project_root / ".preset-toolkit" / ".secrets" / "storage_state.json"
-has_session = storage_state.exists()
+```bash
+test -f .preset-toolkit/.secrets/storage_state.json && echo "SESSION_EXISTS" || echo "NO_SESSION"
 ```
 
-- If `has_session` is True: Use existing session for headless capture.
-- If `has_session` is False or `login` argument provided: Run interactive login first.
+- If `SESSION_EXISTS`: Use existing session for headless capture.
+- If `NO_SESSION` or `login` argument provided: Run interactive login first.
 
 ## Execution Steps
+
+Find the plugin root for PYTHONPATH:
+```bash
+PLUGIN_ROOT=$(find ~/.claude/plugins -path "*/preset-toolkit/*/scripts/screenshot.py" -print -quit 2>/dev/null | sed 's|/scripts/screenshot.py||')
+```
 
 ### Step 1: Interactive Login (if needed)
 
 If no storage state exists or the user passed `login`:
-
-```python
-from scripts.screenshot import capture_sync
-
-result = capture_sync(
-    config,
-    output_dir=Path(".preset-toolkit/screenshots"),
-    headless=False,  # Opens visible browser for login
-)
-```
 
 Tell the user:
 ```
@@ -87,36 +69,53 @@ Log in with your credentials — the browser will stay open for up to 5 minutes.
 Once you're on the dashboard, the screenshot will be captured automatically.
 ```
 
-After login, the storage state is saved automatically for future headless runs.
-
-### Step 2: Headless Capture
-
-```python
+```bash
+source .venv/bin/activate && PYTHONPATH="${PLUGIN_ROOT}:${PYTHONPATH:-}" .venv/bin/python3 -c "
 from scripts.screenshot import capture_sync
+from scripts.config import ToolkitConfig
 from pathlib import Path
 
-# Determine output directory
-output_dir = Path(".preset-toolkit/screenshots")
-if date_arg:
-    output_dir = output_dir / date_arg
+config = ToolkitConfig.discover()
+output_dir = Path('screenshots')
+result = capture_sync(config, output_dir=output_dir, headless=False)
+if result.success:
+    print(f'Full page: {result.full_page}')
+    for chart_id, path in result.sections.items():
+        print(f'Section: chart-{chart_id} -> {path}')
+    print(f'Sections captured: {len(result.sections)}')
+else:
+    print(f'FAILED: {result.error}')
+"
+```
 
-storage_state = config.project_root / ".preset-toolkit" / ".secrets" / "storage_state.json"
+After login, the storage state is saved automatically for future headless runs.
 
+### Step 2: Headless Capture (if session exists)
+
+```bash
+source .venv/bin/activate && PYTHONPATH="${PLUGIN_ROOT}:${PYTHONPATH:-}" .venv/bin/python3 -c "
+from scripts.screenshot import capture_sync
+from scripts.config import ToolkitConfig
+from pathlib import Path
+
+config = ToolkitConfig.discover()
+output_dir = Path('screenshots')
+storage_state = Path('.preset-toolkit/.secrets/storage_state.json')
 result = capture_sync(
     config,
     output_dir=output_dir,
-    storage_state=storage_state if storage_state.exists() else None,
+    storage_state=storage_state,
     headless=True,
 )
+if result.success:
+    print(f'Full page: {result.full_page}')
+    for chart_id, path in result.sections.items():
+        print(f'Section: chart-{chart_id} -> {path}')
+    print(f'Sections captured: {len(result.sections)}')
+else:
+    print(f'FAILED: {result.error}')
+"
 ```
-
-The capture function:
-1. Navigates to the dashboard URL (derived from `config.workspace_url` and `config.dashboard_id`).
-2. Waits for the page to fully load (configurable wait time from `config.get("screenshots.wait_seconds")`).
-3. Masks dynamic elements (configurable selectors from `config.get("screenshots.mask_selectors")`).
-4. Takes a full-page screenshot.
-5. Takes per-section screenshots for each chart element (`[data-test-chart-id]`).
-6. Saves storage state for future use.
 
 ### Step 3: Summary
 
@@ -134,20 +133,21 @@ Screenshots Captured
   Storage state saved for future headless runs.
 ```
 
-If the capture failed (e.g., navigation timeout, session expired):
+If the capture failed:
 
 ```
 Screenshot capture failed: <error message>
 
 Try running with `login` to refresh your session:
-  /preset screenshot login
+  /preset-toolkit:preset-screenshot login
 ```
 
 ## Error Recovery
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| "Navigation failed" | Session expired or network issue | Run `/preset screenshot login` to re-authenticate |
-| "Playwright not installed" | Missing dependency | Run `pip install playwright && playwright install chromium` |
+| PREFLIGHT_FAILED | Setup not run | Run `/preset-toolkit:preset-setup` |
+| "Navigation failed" | Session expired or network issue | Run `/preset-toolkit:preset-screenshot login` |
+| "Login timed out" | Browser closed or login took too long | Run again, complete login within 5 minutes |
 | Empty screenshots | Page not fully loaded | Increase `screenshots.wait_seconds` in config |
 | Missing chart sections | Charts not visible or collapsed | Expand dashboard sections before capture |

@@ -17,6 +17,10 @@ class ScreenshotResult:
     sections: Dict[str, Path] = field(default_factory=dict)
     error: str = ""
 
+    @property
+    def success(self) -> bool:
+        return not self.error and self.full_page is not None
+
 
 async def capture_dashboard(
     config: ToolkitConfig,
