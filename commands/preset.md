@@ -22,18 +22,20 @@ test -f .preset-toolkit/config.yaml && echo "CONFIG_EXISTS" || echo "NO_CONFIG"
 If no argument was provided, show this menu:
 
 ```
-Preset Toolkit -- Dashboard Management
+Preset Toolkit v0.3.0 — Dashboard Management
 
-  1. setup        First-time project wizard
-  2. pull         Pull latest from Preset
-  3. push         Validate + push changes
-  4. screenshot   Capture dashboard screenshots
-  5. check        Health check (validate + markers + fingerprint)
-  6. diff         Visual regression diff against baselines
-  7. status       Show config, ownership, last push info
-  8. help         Contextual help
+  Command           Direct Skill
+  ─────────         ────────────
+  1. setup          /preset-toolkit:preset-setup
+  2. pull           /preset-toolkit:preset-sync-pull
+  3. push           /preset-toolkit:preset-sync-push
+  4. screenshot     /preset-toolkit:preset-screenshot
+  5. check          /preset-toolkit:preset-validate
+  6. diff           /preset-toolkit:preset-visual-regression
+  7. status         (inline)
+  8. help           /preset-toolkit:preset-troubleshoot
 
-Type a number, a command name, or describe what you want in plain English.
+Type a number, name, or describe what you want.
 ```
 
 ## Routing

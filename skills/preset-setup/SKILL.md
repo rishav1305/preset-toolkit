@@ -166,9 +166,14 @@ Setup complete!
     .gitignore
 
   Next steps:
-    /preset pull      — Pull latest dashboard state from Preset
-    /preset check     — Run health checks
-    /preset push      — Validate and push changes
+    /preset pull              — Pull latest dashboard state from Preset
+    /preset check             — Run health checks
+    /preset push              — Validate and push changes
+
+  Or invoke directly:
+    /preset-toolkit:preset-sync-pull
+    /preset-toolkit:preset-validate
+    /preset-toolkit:preset-sync-push
 ```
 
 Do NOT attempt an initial pull during setup. Setup only creates config files.

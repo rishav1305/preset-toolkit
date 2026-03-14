@@ -1,5 +1,7 @@
 """Sync orchestrator: pull + dedup + validate + push + CSS + verify."""
+import os
 import random
+import shutil
 import subprocess
 import sys
 import time
@@ -18,6 +20,9 @@ from scripts.telemetry import get_telemetry
 
 log = get_logger("sync")
 
+# Cached path to the sup binary once discovered
+_sup_path: Optional[str] = None
+
 
 class SupNotFoundError(RuntimeError):
     """Raised when sup CLI is not available and auto-install fails."""
@@ -32,39 +37,72 @@ class SyncResult:
     error: str = ""
 
 
-def _ensure_sup() -> bool:
+def _find_sup() -> Optional[str]:
+    """Find the sup CLI binary. Checks .venv first, then system PATH."""
+    # 1. Check project .venv/bin/sup
+    venv_sup = Path(".venv/bin/sup")
+    if venv_sup.exists():
+        return str(venv_sup.resolve())
+    # 2. Check system PATH
+    system_sup = shutil.which("sup")
+    if system_sup:
+        return system_sup
+    return None
+
+
+def _ensure_sup() -> str:
     """Ensure sup CLI is available, installing preset-cli if needed.
 
+    Returns the path to the sup binary.
     Raises SupNotFoundError if sup cannot be found or installed.
     """
-    try:
-        r = subprocess.run(["sup", "version"], capture_output=True, text=True, timeout=10)
-        if r.returncode == 0:
-            return True
-    except FileNotFoundError:
-        pass
+    global _sup_path
+    if _sup_path:
+        return _sup_path
+
+    found = _find_sup()
+    if found:
+        try:
+            r = subprocess.run([found, "version"], capture_output=True, text=True, timeout=10)
+            if r.returncode == 0:
+                _sup_path = found
+                log.debug("Using sup at: %s", found)
+                return found
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+    # Try installing preset-cli
     from scripts.deps import ensure_sup_cli
     if not ensure_sup_cli():
         raise SupNotFoundError(
             "sup CLI not found. Run /preset setup to install dependencies."
         )
-    return True
+
+    # Re-check after install
+    found = _find_sup()
+    if found:
+        _sup_path = found
+        return found
+
+    raise SupNotFoundError(
+        "sup CLI not found after install. Run /preset setup to install dependencies."
+    )
 
 
 def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> subprocess.CompletedProcess:
     """Run a sup CLI command with retries. Raises SupNotFoundError if missing."""
-    _ensure_sup()
+    sup = _ensure_sup()
     last_result = None
     for attempt in range(1, retries + 1):
         try:
             last_result = subprocess.run(
-                ["sup"] + args,
+                [sup] + args,
                 capture_output=True, text=True, timeout=120,
             )
         except subprocess.TimeoutExpired:
             log.warning("sup %s timed out (attempt %d/%d)", " ".join(args), attempt, retries)
             last_result = subprocess.CompletedProcess(
-                args=["sup"] + args, returncode=1,
+                args=[sup] + args, returncode=1,
                 stdout="", stderr="Command timed out after 120s",
             )
         if last_result.returncode == 0:

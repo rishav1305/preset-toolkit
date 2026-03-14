@@ -2,12 +2,21 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import yaml
+import scripts.sync as sync_mod
 from scripts.sync import _run_sup, SyncResult, SupNotFoundError, pull, validate, push
 from scripts.config import ToolkitConfig
 
 
+@pytest.fixture(autouse=True)
+def _reset_sup_cache():
+    """Reset cached sup path between tests."""
+    sync_mod._sup_path = None
+    yield
+    sync_mod._sup_path = None
+
+
 def test_run_sup_success():
-    with patch("scripts.sync._ensure_sup", return_value=True):
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
             result = _run_sup(["sync", "validate", "test-sync"])
@@ -16,7 +25,7 @@ def test_run_sup_success():
 
 
 def test_run_sup_retries_on_failure():
-    with patch("scripts.sync._ensure_sup", return_value=True):
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
         with patch("subprocess.run") as mock_run:
             with patch("scripts.sync.time.sleep"):  # Don't actually sleep
                 fail = MagicMock(returncode=1, stdout="", stderr="JWT error")
@@ -28,7 +37,7 @@ def test_run_sup_retries_on_failure():
 
 
 def test_run_sup_exhausts_retries():
-    with patch("scripts.sync._ensure_sup", return_value=True):
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
         with patch("subprocess.run") as mock_run:
             with patch("scripts.sync.time.sleep"):  # Don't actually sleep
                 fail = MagicMock(returncode=1, stdout="", stderr="error")
@@ -43,6 +52,24 @@ def test_run_sup_auto_install_failure():
     with patch("scripts.sync._ensure_sup", side_effect=SupNotFoundError("sup CLI not found")):
         with pytest.raises(SupNotFoundError, match="sup CLI not found"):
             _run_sup(["sync", "validate", "test"])
+
+
+def test_find_sup_prefers_venv(tmp_path):
+    """_find_sup should prefer .venv/bin/sup over system PATH."""
+    from scripts.sync import _find_sup
+    import os
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        venv_bin = tmp_path / ".venv" / "bin"
+        venv_bin.mkdir(parents=True)
+        sup_bin = venv_bin / "sup"
+        sup_bin.write_text("#!/bin/sh\necho ok")
+        sup_bin.chmod(0o755)
+        result = _find_sup()
+        assert ".venv/bin/sup" in result
+    finally:
+        os.chdir(old_cwd)
 
 
 def _make_config(tmp_path):

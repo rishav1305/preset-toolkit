@@ -75,11 +75,25 @@ def ensure_core() -> list:
     return failures
 
 
+def _find_sup_binary() -> str:
+    """Find sup binary, checking .venv/bin/ first, then system PATH."""
+    from pathlib import Path
+    import shutil
+    venv_sup = Path(".venv/bin/sup")
+    if venv_sup.exists():
+        return str(venv_sup.resolve())
+    system_sup = shutil.which("sup")
+    if system_sup:
+        return system_sup
+    return "sup"  # fallback to bare name
+
+
 def ensure_sup_cli() -> bool:
     """Check if preset-cli (sup) is installed; install if not."""
+    sup = _find_sup_binary()
     try:
         result = subprocess.run(
-            ["sup", "version"], capture_output=True, text=True, timeout=30,
+            [sup, "version"], capture_output=True, text=True, timeout=30,
         )
         if result.returncode == 0:
             return True
@@ -87,10 +101,11 @@ def ensure_sup_cli() -> bool:
         pass
     log.info("preset-cli (sup) not found.")
     if _pip_install("preset-cli"):
-        # Verify it works after install
+        # Re-discover after install (may now be in .venv/bin/)
+        sup = _find_sup_binary()
         try:
             verify = subprocess.run(
-                ["sup", "version"], capture_output=True, text=True, timeout=30,
+                [sup, "version"], capture_output=True, text=True, timeout=30,
             )
             return verify.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -136,9 +151,10 @@ def check_all(include_optional: bool = False) -> dict:
     for dep in CORE_DEPS:
         status["core"][_pip_name(dep)] = _is_importable(dep)
 
+    sup = _find_sup_binary()
     try:
         sup_ok = subprocess.run(
-            ["sup", "version"], capture_output=True, text=True, timeout=10,
+            [sup, "version"], capture_output=True, text=True, timeout=10,
         ).returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         sup_ok = False
