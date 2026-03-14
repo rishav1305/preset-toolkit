@@ -80,3 +80,59 @@ class DatasetPushResult:
     datasets_pushed: int = 0
     errors: List[str] = field(default_factory=list)
     error: str = ""
+
+
+def _parse_dataset_summary(item: dict) -> DatasetSummary:
+    """Parse a single dataset dict from sup JSON into DatasetSummary."""
+    return DatasetSummary(
+        id=item.get("id", 0),
+        name=item.get("table_name", ""),
+        database=item.get("database_name", ""),
+        schema=item.get("schema", ""),
+        modified=item.get("changed_on_utc", ""),
+    )
+
+
+def list_datasets(
+    config: ToolkitConfig,
+    search: Optional[str] = None,
+    database_id: Optional[int] = None,
+    mine: bool = False,
+    modified_after: Optional[str] = None,
+    limit: Optional[int] = None,
+    order: Optional[str] = None,
+    desc: bool = False,
+) -> DatasetListResult:
+    """List datasets with optional filtering. Uses sup dataset list --json."""
+    args = ["dataset", "list", "--json"]
+
+    if search is not None:
+        args.extend(["--search", search])
+    if database_id is not None:
+        args.extend(["--database-id", str(database_id)])
+    if mine:
+        args.append("--mine")
+    if modified_after is not None:
+        args.extend(["--modified-after", modified_after])
+    if limit is not None:
+        args.extend(["--limit", str(limit)])
+    if order is not None:
+        args.extend(["--order", order])
+    if desc:
+        args.append("--desc")
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return DatasetListResult(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return DatasetListResult(success=False, error=f"JSON parse error: {e}")
+
+    if isinstance(data, list):
+        datasets = [_parse_dataset_summary(item) for item in data]
+    else:
+        datasets = []
+
+    return DatasetListResult(success=True, datasets=datasets, total=len(datasets))

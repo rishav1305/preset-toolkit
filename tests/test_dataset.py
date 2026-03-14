@@ -13,6 +13,7 @@ from scripts.dataset import (
     DatasetData,
     DatasetPullResult,
     DatasetPushResult,
+    list_datasets,
 )
 from scripts.config import ToolkitConfig
 
@@ -112,3 +113,82 @@ def test_dataset_push_result():
     assert result.datasets_pushed == 3
     assert result.errors == []
     assert result.error == ""
+
+
+# ── list_datasets ──────────────────────────────────────────────────
+
+def test_list_datasets_success(tmp_path):
+    """list_datasets parses JSON output into DatasetListResult."""
+    cfg = _make_dataset_config(tmp_path)
+    sup_json = json_mod.dumps([
+        {"id": 42, "table_name": "Main_Dataset", "database_name": "analytics_db",
+         "schema": "public", "changed_on_utc": "2026-03-15T00:00:00Z"},
+        {"id": 43, "table_name": "Users", "database_name": "analytics_db",
+         "schema": "public", "changed_on_utc": "2026-03-14T00:00:00Z"},
+    ])
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = list_datasets(cfg)
+
+    assert result.success is True
+    assert len(result.datasets) == 2
+    assert result.datasets[0].id == 42
+    assert result.datasets[0].name == "Main_Dataset"
+    assert result.datasets[0].database == "analytics_db"
+    assert result.datasets[0].schema == "public"
+    assert result.datasets[1].name == "Users"
+    assert result.total == 2
+
+
+def test_list_datasets_with_filters(tmp_path):
+    """list_datasets passes filter kwargs as CLI flags."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+        list_datasets(cfg, search="orders", mine=True, limit=10, database_id=5)
+
+    args = mock_sup.call_args[0][0]
+    assert "dataset" in args
+    assert "list" in args
+    assert "--json" in args
+    assert "--search" in args
+    assert "orders" in args
+    assert "--mine" in args
+    assert "--limit" in args
+    assert "10" in args
+    assert "--database-id" in args
+    assert "5" in args
+
+
+def test_list_datasets_empty(tmp_path):
+    """list_datasets handles empty result."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+        result = list_datasets(cfg)
+
+    assert result.success is True
+    assert result.datasets == []
+    assert result.total == 0
+
+
+def test_list_datasets_sup_failure(tmp_path):
+    """list_datasets returns error on sup failure."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="auth error")
+        result = list_datasets(cfg)
+
+    assert result.success is False
+    assert "auth error" in result.error
+
+
+def test_list_datasets_malformed_json(tmp_path):
+    """list_datasets handles malformed JSON gracefully."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="not json", stderr="")
+        result = list_datasets(cfg)
+
+    assert result.success is False
+    assert "parse" in result.error.lower() or "json" in result.error.lower()
