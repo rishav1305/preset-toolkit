@@ -13,6 +13,7 @@ from scripts.chart import (
     ChartData,
     ChartPullResult,
     ChartPushResult,
+    list_charts,
 )
 from scripts.config import ToolkitConfig
 
@@ -109,3 +110,82 @@ def test_chart_push_result():
     assert result.charts_pushed == 2
     assert result.errors == []
     assert result.error == ""
+
+
+# ── list_charts ────────────────────────────────────────────────────
+
+def test_list_charts_success(tmp_path):
+    """list_charts parses JSON output into ChartListResult."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps([
+        {"id": 2085, "slice_name": "Revenue", "viz_type": "big_number_total",
+         "datasource_name_text": "Main_Dataset", "changed_on_utc": "2026-03-15T00:00:00Z"},
+        {"id": 2088, "slice_name": "DAU", "viz_type": "line",
+         "datasource_name_text": "Users", "changed_on_utc": "2026-03-14T00:00:00Z"},
+    ])
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = list_charts(cfg)
+
+    assert result.success is True
+    assert len(result.charts) == 2
+    assert result.charts[0].id == 2085
+    assert result.charts[0].name == "Revenue"
+    assert result.charts[0].viz_type == "big_number_total"
+    assert result.charts[0].dataset_name == "Main_Dataset"
+    assert result.charts[1].name == "DAU"
+    assert result.total == 2
+
+
+def test_list_charts_with_filters(tmp_path):
+    """list_charts passes filter kwargs as CLI flags."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+        list_charts(cfg, search="revenue", mine=True, limit=10, viz_type="table")
+
+    args = mock_sup.call_args[0][0]
+    assert "chart" in args
+    assert "list" in args
+    assert "--json" in args
+    assert "--search" in args
+    assert "revenue" in args
+    assert "--mine" in args
+    assert "--limit" in args
+    assert "10" in args
+    assert "--viz-type" in args
+    assert "table" in args
+
+
+def test_list_charts_empty(tmp_path):
+    """list_charts handles empty result."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+        result = list_charts(cfg)
+
+    assert result.success is True
+    assert result.charts == []
+    assert result.total == 0
+
+
+def test_list_charts_sup_failure(tmp_path):
+    """list_charts returns error on sup failure."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="auth error")
+        result = list_charts(cfg)
+
+    assert result.success is False
+    assert "auth error" in result.error
+
+
+def test_list_charts_malformed_json(tmp_path):
+    """list_charts handles malformed JSON gracefully."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="not json", stderr="")
+        result = list_charts(cfg)
+
+    assert result.success is False
+    assert "parse" in result.error.lower() or "json" in result.error.lower()

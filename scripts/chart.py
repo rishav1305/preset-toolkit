@@ -79,3 +79,65 @@ class ChartPushResult:
     charts_pushed: int = 0
     errors: List[str] = field(default_factory=list)
     error: str = ""
+
+
+def _parse_chart_summary(item: dict) -> ChartSummary:
+    """Parse a single chart dict from sup JSON into ChartSummary."""
+    return ChartSummary(
+        id=item.get("id", 0),
+        name=item.get("slice_name", ""),
+        viz_type=item.get("viz_type", ""),
+        dataset_name=item.get("datasource_name_text", ""),
+        modified=item.get("changed_on_utc", ""),
+    )
+
+
+def list_charts(
+    config: ToolkitConfig,
+    search: Optional[str] = None,
+    dashboard_id: Optional[int] = None,
+    viz_type: Optional[str] = None,
+    dataset_id: Optional[int] = None,
+    mine: bool = False,
+    modified_after: Optional[str] = None,
+    limit: Optional[int] = None,
+    order: Optional[str] = None,
+    desc: bool = False,
+) -> ChartListResult:
+    """List charts with optional filtering. Uses sup chart list --json."""
+    args = ["chart", "list", "--json"]
+
+    if search is not None:
+        args.extend(["--search", search])
+    if dashboard_id is not None:
+        args.extend(["--dashboard-id", str(dashboard_id)])
+    if viz_type is not None:
+        args.extend(["--viz-type", viz_type])
+    if dataset_id is not None:
+        args.extend(["--dataset-id", str(dataset_id)])
+    if mine:
+        args.append("--mine")
+    if modified_after is not None:
+        args.extend(["--modified-after", modified_after])
+    if limit is not None:
+        args.extend(["--limit", str(limit)])
+    if order is not None:
+        args.extend(["--order", order])
+    if desc:
+        args.append("--desc")
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return ChartListResult(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return ChartListResult(success=False, error=f"JSON parse error: {e}")
+
+    if isinstance(data, list):
+        charts = [_parse_chart_summary(item) for item in data]
+    else:
+        charts = []
+
+    return ChartListResult(success=True, charts=charts, total=len(charts))
