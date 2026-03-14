@@ -7,7 +7,7 @@ description: "First-time project wizard for preset-toolkit -- creates config, se
 
 You are the first-time setup wizard for preset-toolkit. Walk the user through project initialization with minimal questions -- auto-resolve everything technical.
 
-**SPEED MANDATE:** Complete setup in ≤ 4 tool calls after gathering user input. Batch operations into single Bash calls. Never retry failed installs with different package managers -- just report what's missing.
+**SPEED MANDATE:** Complete setup in ≤ 5 tool calls after gathering user input. Never retry failed installs. No `$()` subshells in Bash commands (triggers permission prompts).
 
 ## Conversation Principles (MANDATORY)
 
@@ -32,32 +32,25 @@ Ask exactly two questions in a single message:
 
 Extract workspace ID from the URL subdomain (e.g., `834639b2` from `https://834639b2.us2a.app.preset.io`).
 
-## Step 2: Create Everything (1 Bash call)
-
-Run ALL of this in a single Bash command:
+## Step 2: Create Directories (1 Bash call — no subshells)
 
 ```bash
-# Directories
 mkdir -p .preset-toolkit/.secrets .preset-toolkit/baselines .preset-toolkit/screenshots sync
-
-# Detect environment
-GIT_EMAIL=$(git config user.email 2>/dev/null || echo "")
-TOKEN_STATUS=$([ -n "$PRESET_API_TOKEN" ] && echo "SET" || echo "UNSET")
-SECRET_STATUS=$([ -n "$PRESET_API_SECRET" ] && echo "SET" || echo "UNSET")
-SYNC_FOLDER=$(ls -d *-sync/ 2>/dev/null | head -1 || echo "sync")
-PIP_AVAILABLE=$(command -v pip3 >/dev/null 2>&1 && echo "yes" || echo "no")
-
-echo "GIT_EMAIL=$GIT_EMAIL"
-echo "TOKEN=$TOKEN_STATUS"
-echo "SECRET=$SECRET_STATUS"
-echo "SYNC_FOLDER=${SYNC_FOLDER:-sync}"
-echo "PIP=$PIP_AVAILABLE"
-echo "DETECT_DONE"
 ```
 
-## Step 3: Write Config Files (1 tool call per file, parallel)
+## Step 3: Detect Environment (1 Bash call — no subshells)
 
-Write all config files in parallel using the Write tool. Use the detected values from Step 2.
+Use a simple script that avoids `$()` substitution:
+
+```bash
+bash -c 'git config user.email 2>/dev/null || echo ""; echo "TOKEN=$PRESET_API_TOKEN"; echo "SECRET=$PRESET_API_SECRET"; which pip3 2>/dev/null && echo "PIP=yes" || echo "PIP=no"; ls -d *-sync/ 2>/dev/null || echo "NO_SYNC"'
+```
+
+Parse the output to determine: git email, token/secret status (SET/UNSET based on non-empty), pip availability, existing sync folder.
+
+## Step 4: Write Config Files (parallel Write calls)
+
+Write ALL config files in parallel using the Write tool. Use the detected values from previous steps. You already know the workspace_url, workspace_id, dashboard_id, dashboard_name from the user's input.
 
 ### `.preset-toolkit/config.yaml`
 ```yaml
@@ -110,16 +103,16 @@ __pycache__/
 .venv/
 ```
 
-## Step 4: Install Dependencies (1 Bash call, only if pip available)
+## Step 5: Install Dependencies (only if pip available)
 
-**If PIP=yes from Step 2:**
+**If PIP=yes from Step 3:**
 ```bash
-pip3 install -q PyYAML Pillow httpx preset-cli 2>&1 | tail -3 && echo "DEPS_OK" || echo "DEPS_PARTIAL"
+pip3 install -q PyYAML Pillow httpx preset-cli 2>&1 | tail -3
 ```
 
-**If PIP=no:** Skip entirely. Report missing deps in the summary. Do NOT try pip, pip3, python3 -m pip, apt-get, or sudo. Just note it.
+**If PIP=no:** Skip entirely. Report missing deps in the summary.
 
-## Step 5: Print Summary (immediately)
+## Step 6: Print Summary (immediately, no tool call)
 
 ```
 Setup complete!
@@ -145,7 +138,7 @@ Setup complete!
     /preset push      — Validate and push changes
 ```
 
-Do NOT attempt an initial pull during setup. Setup only creates config files. The user runs `/preset pull` when ready.
+Do NOT attempt an initial pull during setup. Setup only creates config files.
 
 ## Error Recovery
 
