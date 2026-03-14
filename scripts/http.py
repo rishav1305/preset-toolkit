@@ -1,7 +1,8 @@
 """HTTP retry wrapper with exponential backoff and jitter."""
+import os
 import random
 import time
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import httpx
 
@@ -10,6 +11,15 @@ from scripts.logger import get_logger
 log = get_logger("http")
 
 _RETRYABLE_STATUS = {500, 502, 503, 504, 429}
+
+
+def _get_verify() -> Union[str, bool]:
+    """Resolve TLS verification: honor SSL_CERT_FILE and REQUESTS_CA_BUNDLE."""
+    return (
+        os.environ.get("SSL_CERT_FILE")
+        or os.environ.get("REQUESTS_CA_BUNDLE")
+        or True
+    )
 
 
 def resilient_request(
@@ -25,7 +35,12 @@ def resilient_request(
 
     Retries on: connection errors, timeouts, and 5xx/429 status codes.
     Does NOT retry on 4xx client errors (except 429).
+    Honors HTTP_PROXY/HTTPS_PROXY/NO_PROXY and SSL_CERT_FILE/REQUESTS_CA_BUNDLE.
     """
+    # Only set verify if caller hasn't explicitly provided it
+    if "verify" not in kwargs:
+        kwargs["verify"] = _get_verify()
+
     last_exc: Optional[Exception] = None
 
     for attempt in range(1, retries + 1):
@@ -50,7 +65,9 @@ def resilient_request(
                 raise
             last_exc = e
             if attempt < retries:
-                wait = backoff_base * (2 ** (attempt - 1))
+                base_wait = backoff_base * (2 ** (attempt - 1))
+                jitter = random.uniform(0, base_wait * 0.5)
+                wait = base_wait + jitter
                 log.warning(
                     "%s %s returned %d (attempt %d/%d). Retrying in %.1fs...",
                     method, url, e.response.status_code, attempt, retries, wait,

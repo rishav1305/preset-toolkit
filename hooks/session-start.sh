@@ -44,7 +44,10 @@ print(user.get('email', ''))
 " "$CONFIG_PATH" 2>/dev/null
 }
 
-CONFIG_VALUES=$(read_config) || exit 0  # YAML parse failed — silent exit
+CONFIG_VALUES=$(read_config) || {
+    echo "⚠ preset-toolkit: could not read config (run /preset setup)"
+    exit 0
+}
 
 DASH_NAME=$(echo "$CONFIG_VALUES" | sed -n '1p')
 DASH_ID=$(echo "$CONFIG_VALUES" | sed -n '2p')
@@ -98,8 +101,8 @@ MSG="$MSG\n  Use /preset for all dashboard operations."
 
 printf "%b\n" "$MSG"
 
-# Fire telemetry: plugin_loaded (non-blocking, fail-silent)
-python3 -c "
+# Fire telemetry: plugin_loaded (non-blocking, fail-silent, 5s timeout)
+timeout 5 python3 -c "
 import sys; sys.path.insert(0, '$PROJECT_ROOT')
 try:
     from scripts.telemetry import get_telemetry
