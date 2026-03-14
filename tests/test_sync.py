@@ -425,3 +425,23 @@ def test_validate_dry_run_command_fails(tmp_path):
     assert result.validation_passed is True
     assert result.markers_passed is True
     assert "Dry-run failed" in result.error
+
+
+# ---------------------------------------------------------------------------
+# Task 5: push() backward compatibility with DryRunResult from validate()
+# ---------------------------------------------------------------------------
+
+def test_push_extends_steps_from_dry_run_result(tmp_path):
+    """push() correctly extends steps_completed from DryRunResult returned by validate()."""
+    cfg = _make_config(tmp_path)
+    markers = tmp_path / ".preset-toolkit" / "markers.txt"
+    markers.write_text("")
+    sync_dir = tmp_path / "sync" / "assets"
+    sync_dir.mkdir(parents=True)
+    with patch("scripts.sync._ensure_sup", return_value="/usr/bin/sup"):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            result = push(cfg, dry_run=True)
+            assert result.success is True
+            assert "validate" in result.steps_completed
+            assert any("dry-run" in s for s in result.steps_completed)
