@@ -91,9 +91,15 @@ To make these permanent, add to your ~/.zshrc:
 
 If AUTH=SET, skip this step entirely.
 
-## Step 4: Write Config Files (parallel Write calls)
+## Step 4: Write Config Files
 
-Write ALL config files in parallel using the Write tool. You already know workspace_url, workspace_id, dashboard_id, dashboard_name from the user's input.
+**IMPORTANT:** Before writing any file, you MUST first Read it if it already exists. The Write tool requires a prior Read on existing files. Use this approach:
+
+1. First, check which files already exist using Bash: `ls .preset-toolkit/config.yaml .preset-toolkit/markers.txt .preset-toolkit/ownership.yaml .preset-toolkit/smoke.json .gitignore 2>/dev/null`
+2. Read ALL existing files in parallel (so Write won't fail)
+3. Then Write all files in parallel
+
+If a file already exists with correct content, skip writing it. Only write files that are missing or need updating.
 
 ### `.preset-toolkit/config.yaml`
 ```yaml
@@ -166,14 +172,14 @@ Setup complete!
     .gitignore
 
   Next steps:
-    /preset pull              — Pull latest dashboard state from Preset
-    /preset check             — Run health checks
-    /preset push              — Validate and push changes
+    /preset-toolkit:preset pull         — Pull latest from Preset
+    /preset-toolkit:preset check        — Run health checks
+    /preset-toolkit:preset push         — Validate and push changes
 
   Or invoke directly:
-    /preset-toolkit:preset-sync-pull
-    /preset-toolkit:preset-validate
-    /preset-toolkit:preset-sync-push
+    /preset-toolkit:preset-sync-pull    — Pull
+    /preset-toolkit:preset-validate     — Check
+    /preset-toolkit:preset-sync-push    — Push
 ```
 
 Do NOT attempt an initial pull during setup. Setup only creates config files.
