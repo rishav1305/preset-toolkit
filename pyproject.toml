@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-screenshots = ["playwright>=1.40"]
+screenshots = ["playwright>=1.40", "cryptography>=42.0"]
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
 
 [build-system]

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scripts.screenshot import ScreenshotResult, capture_dashboard
+from scripts.screenshot import ScreenshotResult, _try_auth_context, capture_dashboard
 from scripts.config import ToolkitConfig
 
 
@@ -88,6 +88,50 @@ def test_capture_nav_failure_returns_error(tmp_path):
     assert result.error != ""
     assert "Connection" in result.error or "net::" in result.error
     mock_browser.close.assert_called_once()
+
+
+# ── Auth fallback chain tests ────────────────────────────────────────
+
+
+def test_try_auth_context_uses_storage_state_first(tmp_path):
+    """When storage_state.json exists and works, use it."""
+    cfg = _make_screenshot_config(tmp_path)
+    state_path = tmp_path / ".preset-toolkit" / ".secrets" / "storage_state.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text('{"cookies": []}')
+
+    mock_page = AsyncMock()
+    mock_page.url = "https://test.preset.io/superset/dashboard/42/"  # not a login page
+    mock_page.goto = AsyncMock()
+    mock_page.wait_for_load_state = AsyncMock()
+
+    mock_context = AsyncMock()
+    mock_context.new_page.return_value = mock_page
+
+    mock_browser = AsyncMock()
+    mock_browser.new_context.return_value = mock_context
+
+    mock_pw = AsyncMock()
+    mock_pw.chromium.launch.return_value = mock_browser
+
+    dashboard_url = "https://test.preset.io/superset/dashboard/42/"
+    result = asyncio.run(_try_auth_context(mock_pw, cfg, state_path, dashboard_url))
+    browser, context, page, method = result
+    assert method == "storage_state"
+    assert context is not None
+
+
+def test_try_auth_context_falls_through_to_manual(tmp_path):
+    """When both storage state and cookies fail, return None."""
+    cfg = _make_screenshot_config(tmp_path)
+    state_path = tmp_path / "nonexistent_state.json"  # doesn't exist
+
+    with patch("scripts.browser_cookies.extract_cookies", return_value=[]):
+        dashboard_url = "https://test.preset.io/superset/dashboard/42/"
+        result = asyncio.run(_try_auth_context(AsyncMock(), cfg, state_path, dashboard_url))
+    browser, context, page, method = result
+    assert browser is None
+    assert method is None
 
 
 def test_capture_browser_always_closed(tmp_path):

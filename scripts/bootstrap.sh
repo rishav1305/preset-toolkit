@@ -70,7 +70,7 @@ VENV_PY=".venv/bin/python3"
 #   playwright    → browser automation for screenshots
 #   PyYAML/Pillow/httpx → core libraries
 info "Installing packages..."
-$VENV_PIP install -q PyYAML Pillow httpx superset-sup playwright 2>&1 | grep -v "notice" || true
+$VENV_PIP install -q PyYAML Pillow httpx superset-sup playwright cryptography 2>&1 | grep -v "notice" || true
 
 # Install Chromium browser for Playwright screenshots
 info "Installing Chromium browser..."
@@ -80,7 +80,7 @@ $VENV_PY -m playwright install chromium 2>&1 | tail -1 || true
 DEP_RESULT=$($VENV_PY -c "
 import json, importlib
 results = {}
-for mod, name in [('yaml','PyYAML'), ('PIL','Pillow'), ('httpx','httpx'), ('playwright','playwright')]:
+for mod, name in [('yaml','PyYAML'), ('PIL','Pillow'), ('httpx','httpx'), ('playwright','playwright'), ('cryptography','cryptography')]:
     try:
         importlib.import_module(mod)
         results[name] = 'ok'
@@ -89,7 +89,7 @@ for mod, name in [('yaml','PyYAML'), ('PIL','Pillow'), ('httpx','httpx'), ('play
 print(json.dumps(results))
 " 2>/dev/null || echo '{}')
 
-for pkg in PyYAML Pillow httpx playwright; do
+for pkg in PyYAML Pillow httpx playwright cryptography; do
     STATUS=$(echo "$DEP_RESULT" | $VENV_PY -c "import json,sys; d=json.load(sys.stdin); print(d.get('$pkg','fail'))" 2>/dev/null || echo "fail")
     if [ "$STATUS" = "ok" ]; then
         ok "$pkg"

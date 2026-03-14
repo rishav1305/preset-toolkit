@@ -11,6 +11,76 @@ from scripts.telemetry import get_telemetry
 log = get_logger("screenshot")
 
 
+async def _test_context(playwright, config, dashboard_url, storage_state=None, cookies=None):
+    """Create a headless browser + context, navigate, check if authenticated.
+
+    Returns (browser, context, page) if on the dashboard (not login page).
+    Closes both browser and context on failure.
+    """
+    browser = await playwright.chromium.launch(headless=True)
+    try:
+        context_kwargs = {"viewport": {"width": 1920, "height": 1080}}
+        if storage_state:
+            context_kwargs["storage_state"] = storage_state
+        context = await browser.new_context(**context_kwargs)
+
+        if cookies:
+            await context.add_cookies(cookies)
+
+        page = await context.new_page()
+        nav_timeout = config.get("screenshots.navigation_timeout", 60) * 1000
+        await page.goto(dashboard_url, wait_until="networkidle", timeout=nav_timeout)
+
+        current_url = page.url
+        on_login_page = "/login" in current_url or "/superset/welcome" in current_url
+        if on_login_page:
+            await browser.close()
+            return None, None, None
+
+        return browser, context, page
+    except Exception as e:
+        log.debug("Auth test failed: %s", e)
+        await browser.close()
+        return None, None, None
+
+
+async def _try_auth_context(playwright, config, storage_state_path, dashboard_url):
+    """Try to get an authenticated Playwright context without user interaction.
+
+    Returns (browser, context, page, method_name) on success.
+    Returns (None, None, None, None) on failure.
+    Caller is responsible for closing browser on success.
+    """
+    # Step 1: Try saved storage state
+    if storage_state_path and storage_state_path.exists():
+        log.debug("Trying saved storage state...")
+        browser, context, page = await _test_context(
+            playwright, config, dashboard_url,
+            storage_state=str(storage_state_path),
+        )
+        if context:
+            return browser, context, page, "storage_state"
+
+    # Step 2: Try browser cookies
+    try:
+        from urllib.parse import urlparse
+
+        from scripts.browser_cookies import extract_cookies
+        domain = urlparse(config.workspace_url).hostname or ""
+        cookies = extract_cookies(domain)
+        if cookies:
+            log.debug("Trying %d browser cookies...", len(cookies))
+            browser, context, page = await _test_context(
+                playwright, config, dashboard_url, cookies=cookies,
+            )
+            if context:
+                return browser, context, page, "browser_cookies"
+    except Exception as e:
+        log.debug("Browser cookie extraction failed: %s", e)
+
+    return None, None, None, None
+
+
 @dataclass
 class ScreenshotResult:
     full_page: Optional[Path] = None
@@ -45,15 +115,25 @@ async def capture_dashboard(
     wait_ms = config.get("screenshots.wait_seconds", 15) * 1000
     mask_selectors = config.get("screenshots.mask_selectors", [])
 
+    auth_method = None
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless)
-        try:
-            context_kwargs = {}
-            if storage_state and storage_state.exists():
-                context_kwargs["storage_state"] = str(storage_state)
+        # --- Auth fallback chain ---
+        storage_state_path = storage_state or (
+            config.project_root / ".preset-toolkit" / ".secrets" / "storage_state.json"
+        )
+        browser, context, page, auth_method = await _try_auth_context(
+            p, config, storage_state_path, dashboard_url,
+        )
+
+        if context:
+            log.info("Authenticated via %s", auth_method)
+            await page.wait_for_timeout(wait_ms)
+        else:
+            # Fall back to manual login (original behavior)
+            browser = await p.chromium.launch(headless=False)
             context = await browser.new_context(
                 viewport={"width": 1920, "height": 1080},
-                **context_kwargs,
             )
             page = await context.new_page()
 
@@ -61,33 +141,30 @@ async def capture_dashboard(
                 nav_timeout = config.get("screenshots.navigation_timeout", 60) * 1000
                 await page.goto(dashboard_url, wait_until="networkidle", timeout=nav_timeout)
 
-                # Interactive login: if browser is visible and we landed on a
-                # login page, wait for the user to authenticate before proceeding.
-                if not headless:
-                    login_timeout = 5 * 60 * 1000  # 5 minutes for user to log in
-                    current_url = page.url
-                    on_login_page = "/login" in current_url or "/superset/welcome" in current_url
-                    if on_login_page:
-                        log.info("Waiting for login — complete sign-in in the browser...")
-                        try:
-                            await page.wait_for_url(
-                                f"**/dashboard/{config.dashboard_id}/**",
-                                timeout=login_timeout,
-                            )
-                            # Give the dashboard time to fully render after login redirect
-                            await page.wait_for_timeout(wait_ms)
-                        except Exception:
-                            result.error = "Login timed out — browser was closed or login took too long"
-                            return result
-                    else:
+                login_timeout = 5 * 60 * 1000  # 5 minutes for user to log in
+                current_url = page.url
+                on_login_page = "/login" in current_url or "/superset/welcome" in current_url
+                if on_login_page:
+                    log.info("Waiting for login — complete sign-in in the browser...")
+                    try:
+                        await page.wait_for_url(
+                            f"**/dashboard/{config.dashboard_id}/**",
+                            timeout=login_timeout,
+                        )
                         await page.wait_for_timeout(wait_ms)
+                    except Exception:
+                        result.error = "Login timed out — browser was closed or login took too long"
+                        await browser.close()
+                        return result
                 else:
                     await page.wait_for_timeout(wait_ms)
             except Exception as e:
                 log.error("Dashboard navigation failed: %s", e)
                 result.error = f"Navigation failed: {e}"
+                await browser.close()
                 return result
 
+        try:
             # Mask dynamic elements
             for selector in mask_selectors:
                 elements = await page.query_selector_all(selector)
@@ -128,6 +205,7 @@ async def capture_dashboard(
         "sections_captured": len(result.sections),
         "has_full_page": result.full_page is not None,
         "has_error": bool(result.error),
+        "auth_method": auth_method or "manual_login",
     })
     if result.error:
         t.track_error("screenshot", "capture_failed", result.error)
