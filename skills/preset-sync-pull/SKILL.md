@@ -27,10 +27,10 @@ Pull the latest dashboard state from Preset, deduplicate chart/dataset files, an
 ## Prerequisites
 
 1. Read `.preset-toolkit/config.yaml` to get workspace_url, workspace_id, dashboard_id, sync_folder.
-2. Verify `.venv/bin/python3` and `.venv/bin/preset-cli` both exist. If either is missing, tell the user to run `/preset-toolkit:preset-setup` first. Do NOT attempt to install anything.
-3. Auth is loaded from environment (`PRESET_API_TOKEN`, `PRESET_API_SECRET`).
+2. Verify `.venv/bin/python3` and `.venv/bin/sup` both exist. If either is missing, tell the user to run `/preset-toolkit:preset-setup` first. Do NOT attempt to install anything.
+3. Auth is configured via `sup config` (stored credentials).
 
-**IMPORTANT:** Always use `.venv/bin/python3` and `.venv/bin/preset-cli` for execution. Never use system Python or system preset-cli. All dependencies were installed in the venv during setup.
+**IMPORTANT:** Always use `.venv/bin/python3` and `.venv/bin/sup` for execution. Never use system Python or system sup. All dependencies were installed in the venv during setup.
 
 ## Execution Steps
 
@@ -39,7 +39,7 @@ Pull the latest dashboard state from Preset, deduplicate chart/dataset files, an
 Verify venv, preset-cli, and key deps are available. Do NOT install anything — just check and fail fast.
 
 ```bash
-test -f .venv/bin/python3 && test -f .venv/bin/preset-cli && .venv/bin/python3 -c "import yaml, PIL, httpx; print('DEPS_OK')" && .venv/bin/preset-cli --version && echo "PREFLIGHT_OK" || echo "PREFLIGHT_FAILED"
+test -f .venv/bin/python3 && test -f .venv/bin/sup && .venv/bin/python3 -c "import yaml, PIL, httpx; print('DEPS_OK')" && .venv/bin/sup --version && echo "PREFLIGHT_OK" || echo "PREFLIGHT_FAILED"
 ```
 
 If `PREFLIGHT_FAILED`: Stop and tell the user: "Dependencies missing. Run `/preset-toolkit:preset-setup` to install them."
@@ -89,7 +89,7 @@ Pull Complete
 | Symptom | Cause | Fix |
 |---|---|---|
 | PREFLIGHT_FAILED | Setup not run or incomplete | Run `/preset-toolkit:preset-setup` |
-| "preset-cli not found" | CLI not in venv | Run `/preset-toolkit:preset-setup` |
-| "Failed to auth" | Invalid or expired credentials | Re-export `PRESET_API_TOKEN` and `PRESET_API_SECRET` |
+| "sup CLI not found" | sup not in venv | Run `/preset-toolkit:preset-setup` |
+| "Failed to auth" | Invalid or expired credentials | Run `.venv/bin/sup config` to reconfigure credentials |
 | Timeout on pull | Network or Preset server issue | Retry in 1-2 minutes |
 | Markers missing after pull | Stale/cached data | Review the diff before proceeding |

@@ -138,6 +138,34 @@ sections: {}
 {"workspace_id": "{{workspace_id}}", "sync_folder": "sync", "files": [], "charts": []}
 ```
 
+### `sync/sync_config.yml`
+
+This is required by the `sup` CLI for sync operations. The setup skill MUST create this file.
+
+**IMPORTANT:** The `workspace_id` here must be the NUMERIC workspace ID (e.g., `2194154`), not the alphanumeric one from the URL (e.g., `834639b2`). To get the numeric ID, run:
+```bash
+.venv/bin/sup workspace list 2>/dev/null | head -20
+```
+Find the workspace matching the user's URL and use its numeric ID. If `sup workspace list` fails or the workspace isn't found, ask the user for the numeric workspace ID.
+
+```yaml
+source:
+  workspace_id: {{workspace_numeric_id}}
+  assets:
+    dashboards:
+      selection: ids
+      ids: [{{dashboard_id}}]
+      include_dependencies: true
+target_defaults:
+  overwrite: true
+  include_dependencies: true
+targets:
+- workspace_id: {{workspace_numeric_id}}
+  name: {{dashboard_name_slug}}
+```
+
+Replace `{{dashboard_name_slug}}` with the dashboard name in lowercase with spaces replaced by underscores (e.g., "WCBM Dashboard" → "wcbm_dashboard").
+
 ### `.gitignore` (append or create)
 ```
 .preset-toolkit/.secrets/
@@ -165,6 +193,7 @@ Setup complete!
     .preset-toolkit/markers.txt
     .preset-toolkit/ownership.yaml
     .preset-toolkit/smoke.json
+    sync/sync_config.yml
     .gitignore
 
   Next steps:

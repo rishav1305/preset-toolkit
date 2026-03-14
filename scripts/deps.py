@@ -75,40 +75,36 @@ def ensure_core() -> list:
     return failures
 
 
-def _find_preset_cli() -> str:
-    """Find preset-cli binary, checking .venv/bin/ first, then system PATH."""
+def _find_sup_binary() -> str:
+    """Find sup binary (from superset-sup package), checking .venv/bin/ first, then system PATH."""
     from pathlib import Path
     import shutil
-    venv_cli = Path(".venv/bin/preset-cli")
-    if venv_cli.exists():
-        return str(venv_cli.resolve())
-    system_cli = shutil.which("preset-cli")
-    if system_cli:
-        return system_cli
-    return "preset-cli"  # fallback to bare name
+    venv_sup = Path(".venv/bin/sup")
+    if venv_sup.exists():
+        return str(venv_sup.resolve())
+    system_sup = shutil.which("sup")
+    if system_sup:
+        return system_sup
+    return "sup"  # fallback to bare name
 
 
-# Keep old name for backward compatibility
-_find_sup_binary = _find_preset_cli
-
-
-def ensure_preset_cli() -> bool:
-    """Check if preset-cli is installed; install if not."""
-    cli = _find_preset_cli()
+def ensure_sup_cli() -> bool:
+    """Check if sup CLI (from superset-sup package) is installed; install if not."""
+    sup = _find_sup_binary()
     try:
         result = subprocess.run(
-            [cli, "--version"], capture_output=True, text=True, timeout=30,
+            [sup, "--version"], capture_output=True, text=True, timeout=30,
         )
         if result.returncode == 0:
             return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
-    log.info("preset-cli not found.")
-    if _pip_install("preset-cli"):
-        cli = _find_preset_cli()
+    log.info("sup CLI not found.")
+    if _pip_install("superset-sup"):
+        sup = _find_sup_binary()
         try:
             verify = subprocess.run(
-                [cli, "--version"], capture_output=True, text=True, timeout=30,
+                [sup, "--version"], capture_output=True, text=True, timeout=30,
             )
             return verify.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -116,8 +112,9 @@ def ensure_preset_cli() -> bool:
     return False
 
 
-# Keep old name for backward compatibility
-ensure_sup_cli = ensure_preset_cli
+# Backward compatibility aliases
+_find_preset_cli = _find_sup_binary
+ensure_preset_cli = ensure_sup_cli
 
 
 def ensure_playwright() -> bool:
@@ -158,14 +155,14 @@ def check_all(include_optional: bool = False) -> dict:
     for dep in CORE_DEPS:
         status["core"][_pip_name(dep)] = _is_importable(dep)
 
-    cli = _find_preset_cli()
+    sup = _find_sup_binary()
     try:
-        cli_ok = subprocess.run(
-            [cli, "--version"], capture_output=True, text=True, timeout=10,
+        sup_ok = subprocess.run(
+            [sup, "--version"], capture_output=True, text=True, timeout=10,
         ).returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        cli_ok = False
-    status["tools"]["preset-cli"] = cli_ok
+        sup_ok = False
+    status["tools"]["sup"] = sup_ok
 
     if include_optional:
         status["optional"]["playwright"] = _is_importable("playwright")

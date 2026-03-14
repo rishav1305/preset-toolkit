@@ -23,7 +23,7 @@ test -f .preset-toolkit/config.yaml && echo "CONFIG_EXISTS" || echo "NO_CONFIG"
 If no argument was provided, show this menu:
 
 ```
-Preset Toolkit v0.4.0 — Dashboard Management
+Preset Toolkit v0.4.1 — Dashboard Management
 
   #   Command       Invoke with
   ──  ──────────    ─────────────────────────────────
