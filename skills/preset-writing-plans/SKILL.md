@@ -31,7 +31,7 @@ from scripts.config import ToolkitConfig
 config = ToolkitConfig.discover()
 ```
 
-The change description should come from a brainstorming session (`preset-brainstorming`) or the user's direct request.
+The change description should come from a brainstorming session (`preset-toolkit:preset-brainstorming`) or the user's direct request.
 
 ## Plan Structure
 
@@ -187,4 +187,4 @@ Post-conditions:
   - [ ] Git committed
 ```
 
-When the plan is approved by the user, hand off to `preset-executing-plans` for execution.
+When the plan is approved by the user, hand off to `preset-toolkit:preset-executing-plans` for execution.

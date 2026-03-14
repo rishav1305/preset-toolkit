@@ -116,7 +116,7 @@ Here's what this change involves:
 Ready to create a plan? (yes/no)
 ```
 
-If the user confirms, hand off to `preset-writing-plans` to break the change into safe execution steps.
+If the user confirms, hand off to `preset-toolkit:preset-writing-plans` to break the change into safe execution steps.
 
 ## Reference: Safe YAML Editing
 

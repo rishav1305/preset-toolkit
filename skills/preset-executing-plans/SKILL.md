@@ -31,7 +31,7 @@ from scripts.config import ToolkitConfig
 config = ToolkitConfig.discover()
 ```
 
-A plan should exist from `preset-writing-plans` or the user's direct instructions. If no plan exists, suggest creating one first.
+A plan should exist from `preset-toolkit:preset-writing-plans` or the user's direct instructions. If no plan exists, suggest creating one first.
 
 ## Execution Protocol
 
@@ -127,7 +127,7 @@ After all planned edits are applied and their checkpoints pass:
    Push these changes? (yes/no)
    ```
 
-5. **If approved, push** -- invoke `preset-sync-push` with the appropriate mode.
+5. **If approved, push** -- invoke `preset-toolkit:preset-sync-push` with the appropriate mode.
 
 6. **Post-push verification:**
    - Pull back and check markers

@@ -15,7 +15,7 @@ First, check if `.preset-toolkit/config.yaml` exists in the current project dire
 test -f .preset-toolkit/config.yaml && echo "CONFIG_EXISTS" || echo "NO_CONFIG"
 ```
 
-- If `NO_CONFIG`: Tell the user "This project hasn't been set up for Preset yet." and invoke the `preset-setup` skill.
+- If `NO_CONFIG`: Tell the user "This project hasn't been set up for Preset yet." and invoke the `preset-toolkit:preset-setup` skill.
 - If `CONFIG_EXISTS`: Read the config to greet the user with context, then proceed to routing.
 
 ## Menu
@@ -43,20 +43,20 @@ Parse the user's argument (if provided) and route to the matching skill:
 
 | Input | Skill to Invoke |
 |---|---|
-| `setup`, `init`, `configure`, or first-time detection | `preset-setup` |
-| `pull`, `sync pull`, `fetch`, `get latest` | `preset-sync-pull` |
-| `push`, `sync push`, `deploy`, `publish` | `preset-sync-push` |
-| `check`, `validate`, `health`, `status` | `preset-validate` |
-| `screenshot`, `capture`, `snap`, `photo` | `preset-screenshot` |
-| `diff`, `visual diff`, `regression`, `compare` | `preset-visual-regression` |
-| `ownership`, `who owns`, `owners` | `preset-ownership` |
-| `checkpoint`, `daily`, `report` | `preset-checkpoint` |
-| `troubleshoot`, `fix`, `debug`, `help` | `preset-troubleshoot` |
-| `plan`, `brainstorm`, `what if`, `change` | `preset-brainstorming` |
-| `write plan`, `break down`, `steps` | `preset-writing-plans` |
-| `execute`, `run plan`, `apply` | `preset-executing-plans` |
-| `test`, `tdd`, `verify` | `preset-testing` |
-| `review`, `code review`, `checklist` | `preset-code-review` |
+| `setup`, `init`, `configure`, or first-time detection | `preset-toolkit:preset-setup` |
+| `pull`, `sync pull`, `fetch`, `get latest` | `preset-toolkit:preset-sync-pull` |
+| `push`, `sync push`, `deploy`, `publish` | `preset-toolkit:preset-sync-push` |
+| `check`, `validate`, `health`, `status` | `preset-toolkit:preset-validate` |
+| `screenshot`, `capture`, `snap`, `photo` | `preset-toolkit:preset-screenshot` |
+| `diff`, `visual diff`, `regression`, `compare` | `preset-toolkit:preset-visual-regression` |
+| `ownership`, `who owns`, `owners` | `preset-toolkit:preset-ownership` |
+| `checkpoint`, `daily`, `report` | `preset-toolkit:preset-checkpoint` |
+| `troubleshoot`, `fix`, `debug`, `help` | `preset-toolkit:preset-troubleshoot` |
+| `plan`, `brainstorm`, `what if`, `change` | `preset-toolkit:preset-brainstorming` |
+| `write plan`, `break down`, `steps` | `preset-toolkit:preset-writing-plans` |
+| `execute`, `run plan`, `apply` | `preset-toolkit:preset-executing-plans` |
+| `test`, `tdd`, `verify` | `preset-toolkit:preset-testing` |
+| `review`, `code review`, `checklist` | `preset-toolkit:preset-code-review` |
 
 For `status`, show a quick summary without invoking a sub-skill:
 
@@ -69,24 +69,24 @@ For `status`, show a quick summary without invoking a sub-skill:
 
 If the user provides a free-form description instead of a command name, map their intent:
 
-- "I want to change a label" -> `preset-brainstorming`
-- "Pull the latest" -> `preset-sync-pull`
-- "Push my changes" -> `preset-sync-push`
-- "Something looks wrong" -> `preset-troubleshoot`
-- "Take a screenshot" -> `preset-screenshot`
-- "Check if anything broke" -> `preset-visual-regression`
-- "Review my changes" -> `preset-code-review`
-- "Run the daily checkpoint" -> `preset-checkpoint`
+- "I want to change a label" -> `preset-toolkit:preset-brainstorming`
+- "Pull the latest" -> `preset-toolkit:preset-sync-pull`
+- "Push my changes" -> `preset-toolkit:preset-sync-push`
+- "Something looks wrong" -> `preset-toolkit:preset-troubleshoot`
+- "Take a screenshot" -> `preset-toolkit:preset-screenshot`
+- "Check if anything broke" -> `preset-toolkit:preset-visual-regression`
+- "Review my changes" -> `preset-toolkit:preset-code-review`
+- "Run the daily checkpoint" -> `preset-toolkit:preset-checkpoint`
 
 If ambiguous, ask: "Did you mean X or Y?" -- but only between two options, never more.
 
 ## Invoking Skills
 
-Use the Skill tool to invoke the matched skill. Pass through any remaining arguments. For example:
+Use the Skill tool to invoke the matched skill with the full qualified name `preset-toolkit:<skill-name>`. Pass through any remaining arguments. For example:
 
-- `/preset pull` -> invoke `preset-sync-pull`
-- `/preset push --css-only` -> invoke `preset-sync-push` with args `--css-only`
-- `/preset screenshot 2026-03-13` -> invoke `preset-screenshot` with args `2026-03-13`
+- `/preset pull` -> invoke `preset-toolkit:preset-sync-pull`
+- `/preset push --css-only` -> invoke `preset-toolkit:preset-sync-push` with args `--css-only`
+- `/preset screenshot 2026-03-13` -> invoke `preset-toolkit:preset-screenshot` with args `2026-03-13`
 
 ## Conversation Principles (MANDATORY)
 

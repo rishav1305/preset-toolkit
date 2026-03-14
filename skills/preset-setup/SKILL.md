@@ -1,6 +1,6 @@
 ---
 name: preset-setup
-description: "First-time project wizard for preset-toolkit -- creates config, sets up auth, runs initial pull"
+description: "First-time project wizard for preset-toolkit -- creates config, sets up auth, installs deps in venv"
 ---
 
 # Setup Wizard
@@ -32,25 +32,27 @@ Ask exactly two questions in a single message:
 
 Extract workspace ID from the URL subdomain (e.g., `834639b2` from `https://834639b2.us2a.app.preset.io`).
 
-## Step 2: Create Directories (1 Bash call — no subshells)
+## Step 2: Create Directories + Venv + Install Deps (1 Bash call)
+
+Create everything and install all dependencies in a venv in a single command. No subshells.
 
 ```bash
-mkdir -p .preset-toolkit/.secrets .preset-toolkit/baselines .preset-toolkit/screenshots sync
+mkdir -p .preset-toolkit/.secrets .preset-toolkit/baselines .preset-toolkit/screenshots sync && python3 -m venv .venv && .venv/bin/pip install -q PyYAML Pillow httpx preset-cli 2>&1 | tail -5 && echo "VENV_OK"
 ```
 
-## Step 3: Detect Environment (1 Bash call — no subshells)
+If this fails, report the error but continue with config file creation.
 
-Use a simple script that avoids `$()` substitution:
+## Step 3: Detect Environment (1 Bash call)
 
 ```bash
-bash -c 'git config user.email 2>/dev/null || echo ""; echo "TOKEN=$PRESET_API_TOKEN"; echo "SECRET=$PRESET_API_SECRET"; which pip3 2>/dev/null && echo "PIP=yes" || echo "PIP=no"; ls -d *-sync/ 2>/dev/null || echo "NO_SYNC"'
+git config user.email 2>/dev/null; echo "---"; printenv PRESET_API_TOKEN PRESET_API_SECRET 2>/dev/null | wc -l; echo "---"; ls -d *-sync/ 2>/dev/null || echo "sync"
 ```
 
-Parse the output to determine: git email, token/secret status (SET/UNSET based on non-empty), pip availability, existing sync folder.
+Parse: git email (first line), auth status (line count after --- : 2 = both set, <2 = missing), sync folder.
 
 ## Step 4: Write Config Files (parallel Write calls)
 
-Write ALL config files in parallel using the Write tool. Use the detected values from previous steps. You already know the workspace_url, workspace_id, dashboard_id, dashboard_name from the user's input.
+Write ALL config files in parallel using the Write tool. You already know workspace_url, workspace_id, dashboard_id, dashboard_name from the user's input.
 
 ### `.preset-toolkit/config.yaml`
 ```yaml
@@ -103,16 +105,7 @@ __pycache__/
 .venv/
 ```
 
-## Step 5: Install Dependencies (only if pip available)
-
-**If PIP=yes from Step 3:**
-```bash
-pip3 install -q PyYAML Pillow httpx preset-cli 2>&1 | tail -3
-```
-
-**If PIP=no:** Skip entirely. Report missing deps in the summary.
-
-## Step 6: Print Summary (immediately, no tool call)
+## Step 5: Print Summary (immediately, no tool call)
 
 ```
 Setup complete!
@@ -122,6 +115,7 @@ Setup complete!
   Workspace ID: {{workspace_id}}
   Sync folder:  {{sync_folder}}
   Auth:         {{Configured via environment variables ✓ | NOT SET — see below}}
+  Venv:         .venv/ (PyYAML, Pillow, httpx, preset-cli installed)
 
   Files created:
     .preset-toolkit/config.yaml
@@ -129,8 +123,6 @@ Setup complete!
     .preset-toolkit/ownership.yaml
     .preset-toolkit/smoke.json
     .gitignore
-
-  {{if deps missing: ⚠ Dependencies needed: pip install PyYAML Pillow httpx preset-cli}}
 
   Next steps:
     /preset pull      — Pull latest dashboard state from Preset
@@ -142,6 +134,7 @@ Do NOT attempt an initial pull during setup. Setup only creates config files.
 
 ## Error Recovery
 
+- If venv creation fails: Report the error, suggest `python3 -m venv .venv` manually.
+- If pip install partially fails: Report what failed, continue with config files.
 - If directory creation fails: Check permissions, suggest running from the project root.
-- If pip install partially fails: Report what failed, continue.
 - Never retry installs with different methods. Report once and move on.

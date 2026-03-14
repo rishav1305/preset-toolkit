@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl git ca-certificates openssl \
+    curl git ca-certificates openssl openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Inject corporate Zscaler root CA
@@ -26,5 +26,9 @@ RUN npm install -g @anthropic-ai/claude-code
 
 USER testuser
 WORKDIR /home/testuser
+
+# Force GitHub SSH URLs to use HTTPS (no SSH keys in container)
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" && \
+    git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
 CMD ["bash"]

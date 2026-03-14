@@ -35,7 +35,7 @@ config = ToolkitConfig.discover()
 
 ### Step 1: Pull Latest
 
-Invoke the `preset-sync-pull` skill to pull, dedup, and verify.
+Invoke the `preset-toolkit:preset-sync-pull` skill to pull, dedup, and verify.
 
 ```python
 from scripts.sync import pull
@@ -51,7 +51,7 @@ WARNING: Pull returned stale data (missing markers). Using local state for remai
 
 ### Step 2: Validate
 
-Invoke the `preset-validate` skill to run health checks.
+Invoke the `preset-toolkit:preset-validate` skill to run health checks.
 
 ```python
 from scripts.sync import validate
@@ -62,7 +62,7 @@ Record: validation status, marker status, fingerprint comparison.
 
 ### Step 3: Capture Screenshots
 
-Invoke the `preset-screenshot` skill to capture current state.
+Invoke the `preset-toolkit:preset-screenshot` skill to capture current state.
 
 ```python
 from scripts.screenshot import capture_sync
@@ -76,7 +76,7 @@ screenshot_result = capture_sync(config, output_dir=output_dir)
 
 ### Step 4: Visual Regression
 
-Invoke the `preset-visual-regression` skill to compare against baselines.
+Invoke the `preset-toolkit:preset-visual-regression` skill to compare against baselines.
 
 ```python
 from scripts.visual_diff import compare_images
