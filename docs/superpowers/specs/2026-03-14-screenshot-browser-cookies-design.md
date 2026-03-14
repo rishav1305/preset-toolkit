@@ -38,7 +38,9 @@ Each step is tried in order. First success wins. Repeat screenshots are instant 
 ### Public Interface
 
 ```python
-def extract_cookies(domain: str) -> list[dict]:
+from typing import List, Dict
+
+def extract_cookies(domain: str) -> List[Dict]:
     """Extract cookies for domain from installed browsers.
 
     Returns list of Playwright-compatible cookie dicts:
@@ -74,7 +76,7 @@ def extract_cookies(domain: str) -> list[dict]:
 
 3. Decrypt each cookie value:
    - Strip the `v10` prefix (3 bytes)
-   - IV: 16 bytes of `0x20` (space)
+   - IV: `b' ' * 16` (16 space bytes, 0x20)
    - Decrypt with AES-128-CBC
    - Remove PKCS7 padding
 
@@ -82,7 +84,7 @@ def extract_cookies(domain: str) -> list[dict]:
 
 Direct SQLite read — no decryption. The `moz_cookies` table has `name`, `value`, `host`, `path`, `expiry`, `isSecure`, `isHttpOnly`.
 
-Firefox profiles are at `~/Library/Application Support/Firefox/Profiles/`. Glob for `*.default-release` or `*.default` to find the active profile.
+Firefox profiles are at `~/Library/Application Support/Firefox/Profiles/`. To find the active profile, parse `profiles.ini` in the Firefox directory and look for the profile with `Default=1`. Fall back to globbing `*.default-release` or `*.default` if `profiles.ini` is missing or unparseable.
 
 ### Internal Structure
 
@@ -95,10 +97,10 @@ _BROWSERS = [
     {"name": "Arc", "cookie_path": "...", "keychain_service": "Arc Safe Storage", "keychain_account": "Arc"},
 ]
 
-def _extract_chromium_cookies(cookie_db: Path, keychain_service: str, keychain_account: str, domain: str) -> list[dict]:
+def _extract_chromium_cookies(cookie_db: Path, keychain_service: str, keychain_account: str, domain: str) -> List[Dict]:
     """Read and decrypt cookies from a Chromium-based browser."""
 
-def _extract_firefox_cookies(profile_dir: Path, domain: str) -> list[dict]:
+def _extract_firefox_cookies(profile_dir: Path, domain: str) -> List[Dict]:
     """Read plaintext cookies from Firefox."""
 
 def _decrypt_chromium_value(encrypted_value: bytes, key: bytes) -> str:
@@ -108,13 +110,31 @@ def _get_chromium_key(service: str, account: str) -> bytes:
     """Get the AES key from macOS Keychain via security CLI."""
 ```
 
+### Cookie DB Read Strategy
+
+Chromium-based browsers hold a WAL-mode lock on the Cookies SQLite file while running. To avoid `database is locked` errors, **always copy the cookie DB to a temp file before reading**, then clean up the temp copy after extraction. This ensures reads succeed even when the browser is open.
+
+```python
+import shutil, tempfile
+with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+    shutil.copy2(cookie_db_path, tmp.name)
+    # read from tmp.name
+# os.unlink(tmp.name) in finally block
+```
+
+### Keychain Access UX
+
+On macOS, `security find-generic-password -w` triggers a system dialog asking the user to allow access to the Keychain item (e.g., "Terminal wants to use your confidential information stored in 'Chrome Safe Storage'"). This is a one-time prompt per browser.
+
+Before calling the subprocess, log an INFO message: `"Requesting Keychain access for {browser} cookies..."` so the user understands why the popup appeared.
+
 ### Error Handling
 
 - If a browser is not installed (cookie path doesn't exist): skip silently
-- If Keychain access fails (user denies prompt): skip that browser, try next
-- If SQLite DB is locked: skip that browser, try next
+- If Keychain access fails (user denies prompt): log at INFO, skip that browser, try next
+- If SQLite DB copy or read fails: skip that browser, try next
 - If decryption fails for a cookie: skip that cookie, continue with others
-- All errors logged at DEBUG level — never surfaces to user unless all browsers fail
+- All other errors logged at DEBUG level — never surfaces to user unless all browsers fail
 
 ### Platform Extensibility
 
@@ -132,8 +152,10 @@ The module only handles macOS for now. The browser registry structure makes addi
 async def _try_auth_context(playwright, config, storage_state_path, dashboard_url):
     """Try to get an authenticated Playwright context without user interaction.
 
-    Returns (context, method_name) on success, (None, None) on failure.
-    method_name is one of: "storage_state", "browser_cookies"
+    Returns (browser, context, page, method_name) on success.
+    Returns (None, None, None, None) on failure.
+    Caller is responsible for closing browser on success.
+    On failure, all resources are cleaned up internally.
     """
 ```
 
@@ -141,10 +163,10 @@ async def _try_auth_context(playwright, config, storage_state_path, dashboard_ur
 
 ```python
 async def _test_context(playwright, config, dashboard_url, storage_state=None, cookies=None):
-    """Create a headless context, navigate to dashboard, check if authenticated.
+    """Create a headless browser + context, navigate to dashboard, check if authenticated.
 
-    Returns the context if authenticated (not on login page), None otherwise.
-    Closes the context on failure.
+    Returns (browser, context, page) if authenticated (not on login page).
+    Closes BOTH browser and context on failure — caller owns them on success.
     """
 ```
 
@@ -201,6 +223,7 @@ This is the standard Python cryptography library. Used only for AES-CBC decrypti
 - `test_no_browser_installed` — Cookie paths don't exist, returns `[]`
 - `test_keychain_access_denied` — Mock subprocess to simulate Keychain denial, returns `[]`
 - `test_locked_sqlite_db` — Simulate locked DB, returns `[]`
+- `test_cookie_db_copied_to_temp` — Verify original DB is not opened directly, temp copy is used and cleaned up
 
 **Decryption tests:**
 - `test_decrypt_chromium_value_known_pair` — Encrypt a value with known key, verify decryption roundtrip
@@ -211,7 +234,7 @@ This is the standard Python cryptography library. Used only for AES-CBC decrypti
 - `test_try_auth_context_falls_through_to_cookies` — Storage state stale, browser cookies work
 - `test_try_auth_context_falls_through_to_manual` — Both fail, returns None
 
-**Estimated: 10-11 new tests**, all fast (mock DBs, no real browser).
+**Estimated: 11-12 new tests**, all fast (mock DBs, no real browser).
 
 ---
 
