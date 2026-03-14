@@ -169,3 +169,25 @@ def get_chart_info(
         params=data.get("params", ""),
         raw=data,
     )
+
+
+def get_chart_sql(
+    config: ToolkitConfig,
+    chart_id: int,
+) -> ChartSQL:
+    """Get compiled SQL for a chart. Uses sup chart sql --json."""
+    args = ["chart", "sql", str(chart_id), "--json"]
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return ChartSQL(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return ChartSQL(success=False, error=f"JSON parse error: {e}")
+
+    return ChartSQL(
+        success=True,
+        sql=data.get("result", ""),
+    )

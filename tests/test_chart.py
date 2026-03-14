@@ -15,6 +15,7 @@ from scripts.chart import (
     ChartPushResult,
     list_charts,
     get_chart_info,
+    get_chart_sql,
 )
 from scripts.config import ToolkitConfig
 
@@ -233,3 +234,33 @@ def test_get_chart_info_failure(tmp_path):
 
     assert result.success is False
     assert "chart not found" in result.error
+
+
+# ── get_chart_sql ─────────────────────────────────────────────────
+
+def test_get_chart_sql_success(tmp_path):
+    """get_chart_sql extracts the result field from JSON response."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "result": "SELECT SUM(revenue) FROM sales WHERE date >= '2026-01-01'"
+    })
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = get_chart_sql(cfg, 2085)
+
+    assert result.success is True
+    assert result.sql == "SELECT SUM(revenue) FROM sales WHERE date >= '2026-01-01'"
+
+    args = mock_sup.call_args[0][0]
+    assert args == ["chart", "sql", "2085", "--json"]
+
+
+def test_get_chart_sql_failure(tmp_path):
+    """get_chart_sql returns error on sup failure."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="sql generation failed")
+        result = get_chart_sql(cfg, 2085)
+
+    assert result.success is False
+    assert "sql generation failed" in result.error
