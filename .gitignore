@@ -1,12 +1,32 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
 *.egg-info/
 dist/
 build/
+
+# Virtual environment
 .venv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets & credentials
 .env
 .secrets/
+*.pem
+*.key
+
+# Runtime (created by setup/screenshot skills)
 screenshots/
-node_modules/
+sync/
+.preset-toolkit/
+
+# OS / editor
 .DS_Store
-.pytest_cache/
+node_modules/
+.idea/
+.vscode/
