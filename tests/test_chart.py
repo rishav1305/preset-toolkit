@@ -16,6 +16,7 @@ from scripts.chart import (
     list_charts,
     get_chart_info,
     get_chart_sql,
+    get_chart_data,
 )
 from scripts.config import ToolkitConfig
 
@@ -264,3 +265,58 @@ def test_get_chart_sql_failure(tmp_path):
 
     assert result.success is False
     assert "sql generation failed" in result.error
+
+
+# ── get_chart_data ────────────────────────────────────────────────
+
+def test_get_chart_data_success(tmp_path):
+    """get_chart_data parses columns, rows, and row_count from JSON."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "columns": ["date", "revenue", "users"],
+        "data": [
+            {"date": "2026-01", "revenue": 100, "users": 50},
+            {"date": "2026-02", "revenue": 200, "users": 75},
+        ],
+        "rowcount": 2,
+    })
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = get_chart_data(cfg, 2085)
+
+    assert result.success is True
+    assert result.columns == ["date", "revenue", "users"]
+    assert len(result.rows) == 2
+    assert result.rows[0]["revenue"] == 100
+    assert result.row_count == 2
+
+    args = mock_sup.call_args[0][0]
+    assert args == ["chart", "data", "2085", "--json"]
+
+
+def test_get_chart_data_with_limit(tmp_path):
+    """get_chart_data passes --limit flag when limit is provided."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "columns": ["date"],
+        "data": [{"date": "2026-01"}],
+        "rowcount": 1,
+    })
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        get_chart_data(cfg, 2085, limit=50)
+
+    args = mock_sup.call_args[0][0]
+    assert "--limit" in args
+    assert "50" in args
+
+
+def test_get_chart_data_failure(tmp_path):
+    """get_chart_data returns error on sup failure."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="data fetch error")
+        result = get_chart_data(cfg, 2085)
+
+    assert result.success is False
+    assert "data fetch error" in result.error

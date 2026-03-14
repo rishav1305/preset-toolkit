@@ -191,3 +191,30 @@ def get_chart_sql(
         success=True,
         sql=data.get("result", ""),
     )
+
+
+def get_chart_data(
+    config: ToolkitConfig,
+    chart_id: int,
+    limit: Optional[int] = None,
+) -> ChartData:
+    """Get actual data results from a chart query. Uses sup chart data --json."""
+    args = ["chart", "data", str(chart_id), "--json"]
+    if limit is not None:
+        args.extend(["--limit", str(limit)])
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return ChartData(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return ChartData(success=False, error=f"JSON parse error: {e}")
+
+    return ChartData(
+        success=True,
+        columns=data.get("columns", []),
+        rows=data.get("data", []),
+        row_count=data.get("rowcount", 0),
+    )
