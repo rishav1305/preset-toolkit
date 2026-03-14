@@ -14,6 +14,7 @@ from scripts.chart import (
     ChartPullResult,
     ChartPushResult,
     list_charts,
+    get_chart_info,
 )
 from scripts.config import ToolkitConfig
 
@@ -189,3 +190,46 @@ def test_list_charts_malformed_json(tmp_path):
 
     assert result.success is False
     assert "parse" in result.error.lower() or "json" in result.error.lower()
+
+
+# ── get_chart_info ────────────────────────────────────────────────
+
+def test_get_chart_info_success(tmp_path):
+    """get_chart_info parses JSON dict into ChartInfo fields + raw dict."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "id": 2085,
+        "slice_name": "Revenue Overview",
+        "viz_type": "big_number_total",
+        "datasource_name_text": "Main_Dataset",
+        "query_context": '{"datasource":{"id":42}}',
+        "params": '{"metric":"sum__revenue"}',
+        "extra_field": "should appear in raw",
+    })
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = get_chart_info(cfg, 2085)
+
+    assert result.success is True
+    assert result.id == 2085
+    assert result.name == "Revenue Overview"
+    assert result.viz_type == "big_number_total"
+    assert result.dataset_name == "Main_Dataset"
+    assert result.query_context == '{"datasource":{"id":42}}'
+    assert result.params == '{"metric":"sum__revenue"}'
+    assert result.raw["extra_field"] == "should appear in raw"
+    assert result.raw["id"] == 2085
+
+    args = mock_sup.call_args[0][0]
+    assert args == ["chart", "info", "2085", "--json"]
+
+
+def test_get_chart_info_failure(tmp_path):
+    """get_chart_info returns error on sup failure."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="chart not found")
+        result = get_chart_info(cfg, 9999)
+
+    assert result.success is False
+    assert "chart not found" in result.error

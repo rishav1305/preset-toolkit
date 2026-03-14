@@ -141,3 +141,31 @@ def list_charts(
         charts = []
 
     return ChartListResult(success=True, charts=charts, total=len(charts))
+
+
+def get_chart_info(
+    config: ToolkitConfig,
+    chart_id: int,
+) -> ChartInfo:
+    """Get detailed metadata for a single chart. Uses sup chart info --json."""
+    args = ["chart", "info", str(chart_id), "--json"]
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return ChartInfo(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return ChartInfo(success=False, error=f"JSON parse error: {e}")
+
+    return ChartInfo(
+        success=True,
+        id=data.get("id", 0),
+        name=data.get("slice_name", ""),
+        viz_type=data.get("viz_type", ""),
+        dataset_name=data.get("datasource_name_text", ""),
+        query_context=data.get("query_context", ""),
+        params=data.get("params", ""),
+        raw=data,
+    )
