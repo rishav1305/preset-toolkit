@@ -179,11 +179,10 @@ async def capture_dashboard(config, output_dir, storage_state=None, headless=Tru
     async with async_playwright() as p:
         # Try automatic auth first
         storage_state_path = config.project_root / ".preset-toolkit" / ".secrets" / "storage_state.json"
-        context, method = await _try_auth_context(p, config, storage_state_path, dashboard_url)
+        browser, context, page, method = await _try_auth_context(p, config, storage_state_path, dashboard_url)
 
         if context:
             log.info("Authenticated via %s", method)
-            page = context.pages[0]
         else:
             # Fall back to manual login (existing code, unchanged)
             browser = await p.chromium.launch(headless=False)
@@ -191,7 +190,10 @@ async def capture_dashboard(config, output_dir, storage_state=None, headless=Tru
             page = await context.new_page()
             # ... existing login wait logic ...
 
-        # ... rest of screenshot capture unchanged ...
+        try:
+            # ... rest of screenshot capture unchanged ...
+        finally:
+            await browser.close()
 ```
 
 ### What Doesn't Change
