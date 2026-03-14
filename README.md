@@ -1,8 +1,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet?style=for-the-badge" alt="Claude Code Plugin" />
   <img src="https://img.shields.io/badge/Preset-Dashboard_Toolkit-orange?style=for-the-badge" alt="Preset Dashboard Toolkit" />
-  <img src="https://img.shields.io/badge/version-0.4.1-green?style=for-the-badge" alt="Version 0.4.1" />
-  <img src="https://img.shields.io/badge/tests-124_passing-brightgreen?style=for-the-badge" alt="124 Tests Passing" />
+  <img src="https://img.shields.io/badge/version-0.5.0-green?style=for-the-badge" alt="Version 0.5.0" />
+  <img src="https://img.shields.io/badge/tests-136_passing-brightgreen?style=for-the-badge" alt="136 Tests Passing" />
   <img src="https://img.shields.io/badge/license-BUSL_1.1-blue?style=for-the-badge" alt="License" />
 </p>
 
@@ -105,7 +105,7 @@ Setup handles everything: virtual environment, dependencies (`superset-sup`, Pla
 | **Deduplication** | Auto-removes duplicate chart/dataset YAMLs by UUID |
 | **Safe YAML** | Never uses `yaml.dump()` — string replacement preserves formatting |
 | **Post-push verify** | Automatic pull-back and recheck after every push |
-| **Interactive login** | Browser opens for SSO login with 5-minute wait — no credential juggling |
+| **Zero-login screenshots** | Auto-extracts cookies from Chrome/Firefox/Edge/Arc — falls back to interactive login |
 
 ---
 
@@ -302,10 +302,11 @@ preset-toolkit/
 │   └── preset-debugging/     Systematic debugging
 ├── agents/                   Visual diff + conflict check agents
 ├── references/               Preset knowledge base (7 docs)
-├── scripts/                  Python automation (12 modules)
+├── scripts/                  Python automation (13 modules)
 │   ├── sync.py               Pull/push orchestrator (uses sup CLI)
 │   ├── push_dashboard.py     REST API push (CSS/position)
-│   ├── screenshot.py         Playwright browser capture
+│   ├── screenshot.py         Playwright browser capture + auth fallback
+│   ├── browser_cookies.py    Cookie extraction from Chrome/Firefox/Edge/Arc
 │   ├── visual_diff.py        Pixel comparison (Pillow)
 │   ├── fingerprint.py        Per-file SHA-256 content hashing
 │   ├── dedup.py              UUID duplicate removal
@@ -317,7 +318,7 @@ preset-toolkit/
 │   ├── logger.py             Structured logging + secret sanitization
 │   └── bootstrap.sh          Venv + dependency installer
 ├── templates/                Project scaffolding files
-└── tests/                    124 tests (unit + integration)
+└── tests/                    136 tests (unit + integration)
 ```
 
 ### Dependencies
@@ -331,6 +332,7 @@ Installed automatically by setup into a project-local `.venv/`:
 | `PyYAML` | YAML parsing |
 | `Pillow` | Image comparison for visual regression |
 | `httpx` | HTTP client with retry support |
+| `cryptography` | AES decryption for Chromium cookie extraction |
 
 ---
 
@@ -343,7 +345,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-All 124 tests pass in ~4 seconds.
+All 136 tests pass in ~4 seconds.
 
 ### Design Principles
 
