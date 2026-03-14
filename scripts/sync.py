@@ -127,7 +127,7 @@ def _find_sup() -> Optional[str]:
     return None
 
 
-def _ensure_sup() -> str:
+def ensure_sup() -> str:
     """Find the sup CLI binary and verify it works.
 
     Returns the path to the sup binary.
@@ -153,9 +153,13 @@ def _ensure_sup() -> str:
     )
 
 
-def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> subprocess.CompletedProcess:
+# Backward-compat alias
+_ensure_sup = ensure_sup
+
+
+def run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> subprocess.CompletedProcess:
     """Run a sup CLI command with retries. Raises SupNotFoundError if missing."""
-    sup = _ensure_sup()
+    sup = ensure_sup()
     last_result = None
     for attempt in range(1, retries + 1):
         try:
@@ -179,6 +183,10 @@ def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> su
             )
             time.sleep(wait)
     return last_result
+
+
+# Backward-compat alias
+_run_sup = run_sup
 
 
 def pull(config: ToolkitConfig) -> SyncResult:
