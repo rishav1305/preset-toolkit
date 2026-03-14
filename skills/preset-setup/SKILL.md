@@ -178,6 +178,8 @@ __pycache__/
 
 ## Step 5: Print Summary (no tool call — just output text)
 
+**CRITICAL:** You MUST print the EXACT skill names below with the full `preset-toolkit:` prefix. NEVER shorten them. `/preset pull` does NOT work — only the full names work.
+
 ```
 Setup complete!
 
@@ -185,8 +187,8 @@ Setup complete!
   Workspace:    {{workspace_url}}
   Workspace ID: {{workspace_id}}
   Sync folder:  sync/
-  Auth:         {{Configured ✓ | Set up in .preset-toolkit/.secrets/keys.env}}
-  Venv:         .venv/ with all dependencies
+  Auth:         {{Configured | Set up in .preset-toolkit/.secrets/keys.env}}
+  Venv:         .venv/ with sup CLI + preset-cli + playwright
 
   Files created:
     .preset-toolkit/config.yaml
@@ -196,16 +198,15 @@ Setup complete!
     sync/sync_config.yml
     .gitignore
 
-  Next steps:
-    /preset-toolkit:preset pull         — Pull latest from Preset
-    /preset-toolkit:preset check        — Run health checks
-    /preset-toolkit:preset push         — Validate and push changes
+  Next steps (copy-paste these exactly):
 
-  Or invoke directly:
-    /preset-toolkit:preset-sync-pull    — Pull
-    /preset-toolkit:preset-validate     — Check
-    /preset-toolkit:preset-sync-push    — Push
+    /preset-toolkit:preset-sync-pull    Pull latest from Preset
+    /preset-toolkit:preset-validate     Run health checks
+    /preset-toolkit:preset-sync-push    Validate and push changes
+    /preset-toolkit:preset-screenshot   Capture dashboard screenshot
 ```
+
+**WARNING:** Do NOT shorten these names. Do NOT show `/preset pull` or `/preset check` — those do NOT work. The full `preset-toolkit:preset-*` prefix is required by Claude Code's plugin system.
 
 Do NOT attempt an initial pull during setup. Setup only creates config files.
 
