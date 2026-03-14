@@ -21,12 +21,18 @@ def _sanitize(text: str) -> str:
 from scripts.config import ToolkitConfig
 from scripts.dedup import apply_dedup
 from scripts.fingerprint import (
-    compute_fingerprint, check_markers, save_fingerprint, load_fingerprint,
+    compute_fingerprint, compute_fingerprint_map, check_markers,
+    save_fingerprint, save_fingerprint_map, load_fingerprint, load_fingerprint_map,
 )
 from scripts.logger import get_logger
 from scripts.telemetry import get_telemetry
 
 log = get_logger("sync")
+
+
+class SupNotFoundError(RuntimeError):
+    """Raised when sup CLI is not available and auto-install fails."""
+    pass
 
 
 @dataclass
@@ -38,7 +44,10 @@ class SyncResult:
 
 
 def _ensure_sup() -> bool:
-    """Ensure sup CLI is available, installing preset-cli if needed."""
+    """Ensure sup CLI is available, installing preset-cli if needed.
+
+    Raises SupNotFoundError if sup cannot be found or installed.
+    """
     try:
         r = subprocess.run(["sup", "version"], capture_output=True, text=True, timeout=10)
         if r.returncode == 0:
@@ -46,16 +55,16 @@ def _ensure_sup() -> bool:
     except FileNotFoundError:
         pass
     from scripts.deps import ensure_sup_cli
-    return ensure_sup_cli()
+    if not ensure_sup_cli():
+        raise SupNotFoundError(
+            "sup CLI not found. Run /preset setup to install dependencies."
+        )
+    return True
 
 
 def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> subprocess.CompletedProcess:
-    """Run a sup CLI command with retries. Auto-installs sup if missing."""
-    if not _ensure_sup():
-        return subprocess.CompletedProcess(
-            args=["sup"] + args, returncode=1,
-            stdout="", stderr="preset-cli (sup) not installed and auto-install failed.",
-        )
+    """Run a sup CLI command with retries. Raises SupNotFoundError if missing."""
+    _ensure_sup()
     last_result = None
     for attempt in range(1, retries + 1):
         try:
@@ -113,20 +122,19 @@ def pull(config: ToolkitConfig) -> SyncResult:
                     if removed:
                         result.steps_completed.append(f"dedup: removed {removed} dataset duplicates in {subdir.name}")
 
-        # Fingerprint check
+        # Fingerprint check (v2 per-file map)
         fp_file = Path(config.get("validation.fingerprint_file", ".preset-toolkit/.last-push-fingerprint"))
-        last_fp = load_fingerprint(fp_file)
-
-        # Find dataset YAMLs for fingerprinting
-        dataset_yamls = list((assets / "datasets").rglob("*.yaml")) if (assets / "datasets").exists() else []
-        if dataset_yamls:
-            current_fp = compute_fingerprint(dataset_yamls[0])  # Primary dataset
-            if last_fp and current_fp.hash != last_fp.hash:
+        last_map = load_fingerprint_map(fp_file)
+        current_map = compute_fingerprint_map(assets)
+        if last_map:
+            changes = current_map.diff(last_map)
+            if changes:
+                summary = current_map.summary(last_map)
                 result.warnings.append(
-                    f"Fingerprint changed after pull: {last_fp.hash} -> {current_fp.hash}. "
+                    f"Fingerprint changed after pull: {summary}. "
                     "Pull may have returned stale data."
                 )
-            result.steps_completed.append(f"fingerprint: {current_fp}")
+        result.steps_completed.append(f"fingerprint: {current_map.summary()}")
 
         result.success = True
     return result
@@ -231,18 +239,15 @@ def push(
                 log.warning("CSS push error: %s", e)
                 result.warnings.append(f"CSS push error: {e}")
 
-        # Save fingerprint
+        # Save fingerprint (v2 per-file map)
         fp_file = Path(config.get("validation.fingerprint_file", ".preset-toolkit/.last-push-fingerprint"))
         assets = Path(sync_folder) / "assets"
-        ds_dir = assets / "datasets"
-        dataset_yamls = list(ds_dir.rglob("*.yaml")) if ds_dir.exists() else []
-        if dataset_yamls:
-            try:
-                fp = compute_fingerprint(dataset_yamls[0])
-                save_fingerprint(fp, fp_file)
-                result.steps_completed.append(f"fingerprint saved: {fp}")
-            except (OSError, Exception) as e:
-                log.warning("Could not save fingerprint: %s", e)
+        try:
+            fp_map = compute_fingerprint_map(assets)
+            save_fingerprint_map(fp_map, fp_file)
+            result.steps_completed.append(f"fingerprint saved: {fp_map.summary()}")
+        except (OSError, Exception) as e:
+            log.warning("Could not save fingerprint: %s", e)
 
     result.success = True
     return result

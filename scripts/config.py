@@ -50,9 +50,15 @@ class ToolkitConfig:
     def discover(cls, start_dir: Optional[Path] = None) -> "ToolkitConfig":
         """Find .preset-toolkit/config.yaml by walking up from start_dir."""
         d = Path(start_dir or Path.cwd())
+        origin = d
         while True:
             candidate = d / ".preset-toolkit" / "config.yaml"
             if candidate.exists():
+                if d != origin:
+                    log.warning(
+                        "Using config from parent directory: %s",
+                        candidate.parent,
+                    )
                 return cls.load(candidate)
             parent = d.parent
             if parent == d:

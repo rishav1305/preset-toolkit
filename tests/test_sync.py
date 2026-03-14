@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import yaml
-from scripts.sync import _run_sup, SyncResult, pull, validate, push
+from scripts.sync import _run_sup, SyncResult, SupNotFoundError, pull, validate, push
 from scripts.config import ToolkitConfig
 
 
@@ -39,11 +39,10 @@ def test_run_sup_exhausts_retries():
 
 
 def test_run_sup_auto_install_failure():
-    """When sup can't be installed, _run_sup returns a failure result."""
-    with patch("scripts.sync._ensure_sup", return_value=False):
-        result = _run_sup(["sync", "validate", "test"])
-        assert result.returncode == 1
-        assert "not installed" in result.stderr
+    """When sup can't be installed, _run_sup raises SupNotFoundError."""
+    with patch("scripts.sync._ensure_sup", side_effect=SupNotFoundError("sup CLI not found")):
+        with pytest.raises(SupNotFoundError, match="sup CLI not found"):
+            _run_sup(["sync", "validate", "test"])
 
 
 def _make_config(tmp_path):

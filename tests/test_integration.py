@@ -7,7 +7,11 @@ from PIL import Image
 
 from scripts.config import ToolkitConfig
 from scripts.dedup import find_duplicates, apply_dedup
-from scripts.fingerprint import compute_fingerprint, check_markers, save_fingerprint, load_fingerprint
+from scripts.fingerprint import (
+    compute_fingerprint, compute_fingerprint_map, check_markers,
+    save_fingerprint, load_fingerprint,
+    save_fingerprint_map, load_fingerprint_map, FingerprintMap,
+)
 from scripts.ownership import OwnershipMap
 from scripts.visual_diff import compare_images
 from scripts.push_dashboard import compare_css
@@ -104,12 +108,28 @@ def test_full_setup_flow(tmp_path):
     fp2 = compute_fingerprint(dataset_path)
     assert fp.hash == fp2.hash
 
-    # Save and load
+    # Save and load (v1 legacy)
     fp_file = config_dir / ".last-push-fingerprint"
     save_fingerprint(fp, fp_file)
     loaded = load_fingerprint(fp_file)
     assert loaded.hash == fp.hash
     assert loaded.sql_length == fp.sql_length
+
+    # v2 per-file fingerprint map
+    assets_dir = tmp_path / "sync" / "assets"
+    fp_map = compute_fingerprint_map(assets_dir)
+    assert len(fp_map.files) > 0
+
+    fp_map_file = config_dir / ".fp-map-test"
+    save_fingerprint_map(fp_map, fp_map_file)
+    loaded_map = load_fingerprint_map(fp_map_file)
+    assert loaded_map is not None
+    assert loaded_map.files == fp_map.files
+
+    # Diff detection
+    fp_map2 = FingerprintMap(files={**fp_map.files, "new_file.yaml": "deadbeef"})
+    changes = fp_map2.diff(fp_map)
+    assert changes.get("new_file.yaml") == "added"
 
     # --- 4. Markers ---
     markers_file = config_dir / "markers.txt"

@@ -51,11 +51,24 @@ DASH_ID=$(echo "$CONFIG_VALUES" | sed -n '2p')
 WORKSPACE_URL=$(echo "$CONFIG_VALUES" | sed -n '3p')
 USER_EMAIL=$(echo "$CONFIG_VALUES" | sed -n '4p')
 
-# Read last push fingerprint if available
+# Read last push fingerprint if available (v2 JSON or v1 plain text)
 FINGERPRINT=""
-FINGERPRINT_FILE="$PROJECT_ROOT/.preset-toolkit/last_push_fingerprint"
+FINGERPRINT_FILE="$PROJECT_ROOT/.preset-toolkit/.last-push-fingerprint"
 if [ -f "$FINGERPRINT_FILE" ]; then
-    FINGERPRINT=$(cat "$FINGERPRINT_FILE" 2>/dev/null || true)
+    FINGERPRINT=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    if isinstance(data, dict) and data.get('version') == 2:
+        files = data.get('files', {})
+        print(f'{len(files)} files tracked')
+    else:
+        print(f.read().strip())
+except (json.JSONDecodeError, Exception):
+    with open(sys.argv[1]) as f:
+        print(f.read().strip())
+" "$FINGERPRINT_FILE" 2>/dev/null || cat "$FINGERPRINT_FILE" 2>/dev/null || true)
 fi
 
 # Build the context message
