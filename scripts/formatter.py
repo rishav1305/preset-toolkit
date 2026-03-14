@@ -5,6 +5,10 @@ from typing import Any
 
 import yaml
 
+from scripts.chart import (
+    ChartListResult, ChartInfo, ChartSQL, ChartData,
+    ChartPullResult, ChartPushResult,
+)
 from scripts.sync import ChangeAction, DryRunResult, SyncResult
 
 # ANSI color codes
@@ -73,6 +77,90 @@ def _format_table_sync(result: SyncResult) -> str:
     return "\n".join(lines)
 
 
+def _format_table_chart_list(result: ChartListResult) -> str:
+    """Render ChartListResult as a table."""
+    lines = []
+    if result.charts:
+        lines.append(f"{'ID':<8} {'Name':<30} {'Type':<20} {'Dataset':<20} Modified")
+        lines.append("-" * 100)
+        for c in result.charts:
+            lines.append(f"{c.id:<8} {c.name:<30} {c.viz_type:<20} {c.dataset_name:<20} {c.modified}")
+        lines.append("")
+        lines.append(f"{result.total} chart(s) found.")
+    else:
+        lines.append("No charts found.")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_chart_info(result: ChartInfo) -> str:
+    """Render ChartInfo as key-value pairs."""
+    lines = [
+        f"ID:           {result.id}",
+        f"Name:         {result.name}",
+        f"Type:         {result.viz_type}",
+        f"Dataset:      {result.dataset_name}",
+    ]
+    if result.query_context:
+        lines.append(f"Query Context: {result.query_context[:80]}...")
+    if result.params:
+        lines.append(f"Params:       {result.params[:80]}...")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_chart_sql(result: ChartSQL) -> str:
+    """Render ChartSQL as a SQL block."""
+    if result.error:
+        return f"ERROR: {result.error}"
+    return result.sql
+
+
+def _format_table_chart_data(result: ChartData) -> str:
+    """Render ChartData as a columnar table."""
+    lines = []
+    if result.columns:
+        header = " | ".join(f"{col:<15}" for col in result.columns)
+        lines.append(header)
+        lines.append("-" * len(header))
+        for row in result.rows:
+            line = " | ".join(f"{str(row.get(col, '')):<15}" for col in result.columns)
+            lines.append(line)
+        lines.append("")
+        lines.append(f"{result.row_count} row(s) returned.")
+    else:
+        lines.append("No data returned.")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_chart_pull(result: ChartPullResult) -> str:
+    """Render ChartPullResult as a summary."""
+    lines = [f"Charts pulled: {result.charts_pulled}"]
+    if result.files:
+        lines.append("Files:")
+        for f in result.files:
+            lines.append(f"  - {f}")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_chart_push(result: ChartPushResult) -> str:
+    """Render ChartPushResult as a summary."""
+    lines = [f"Charts pushed: {result.charts_pushed}"]
+    if result.errors:
+        lines.append("Errors:")
+        for e in result.errors:
+            lines.append(f"  - {e}")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
 def _coerce_enums(obj: Any) -> Any:
     """Recursively convert Enum instances to their plain string/value form.
 
@@ -123,6 +211,18 @@ def format_output(data: Any, fmt: str = "table") -> str:
             return _format_table_dry_run(data)
         elif isinstance(data, SyncResult):
             return _format_table_sync(data)
+        elif isinstance(data, ChartListResult):
+            return _format_table_chart_list(data)
+        elif isinstance(data, ChartInfo):
+            return _format_table_chart_info(data)
+        elif isinstance(data, ChartSQL):
+            return _format_table_chart_sql(data)
+        elif isinstance(data, ChartData):
+            return _format_table_chart_data(data)
+        elif isinstance(data, ChartPullResult):
+            return _format_table_chart_pull(data)
+        elif isinstance(data, ChartPushResult):
+            return _format_table_chart_push(data)
         else:
             return str(dataclasses.asdict(data))
     elif fmt == "json":

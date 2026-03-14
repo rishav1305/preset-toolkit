@@ -4,6 +4,10 @@ import json
 import pytest
 import yaml
 
+from scripts.chart import (
+    ChartSummary, ChartListResult, ChartInfo, ChartSQL,
+    ChartData, ChartPullResult, ChartPushResult,
+)
 from scripts.formatter import format_output
 from scripts.sync import AssetChange, ChangeAction, DryRunResult, SyncResult
 
@@ -118,3 +122,125 @@ def test_format_invalid_format_raises():
     result = SyncResult(success=True)
     with pytest.raises(ValueError, match="Unknown format"):
         format_output(result, fmt="xml")
+
+
+# ── Chart table formats ────────────────────────────────────────────
+
+
+def test_format_chart_list_table():
+    """ChartListResult table shows ID, Name, Type, Dataset, Modified columns."""
+    result = ChartListResult(
+        success=True,
+        charts=[
+            ChartSummary(id=2085, name="Revenue", viz_type="big_number_total",
+                         dataset_name="Main", modified="2026-03-15T00:00:00Z"),
+            ChartSummary(id=2088, name="DAU", viz_type="line",
+                         dataset_name="Users", modified="2026-03-14T00:00:00Z"),
+        ],
+        total=2,
+    )
+    output = format_output(result, fmt="table")
+    assert "2085" in output
+    assert "Revenue" in output
+    assert "big_number_total" in output
+    assert "Main" in output
+    assert "2088" in output
+    assert "DAU" in output
+    assert "2 chart(s)" in output
+
+
+def test_format_chart_list_empty_table():
+    """ChartListResult table shows 'no charts' when empty."""
+    result = ChartListResult(success=True, charts=[], total=0)
+    output = format_output(result, fmt="table")
+    assert "no charts" in output.lower()
+
+
+def test_format_chart_info_table():
+    """ChartInfo table shows key-value metadata."""
+    result = ChartInfo(
+        success=True, id=2085, name="Revenue", viz_type="big_number_total",
+        dataset_name="Main_Dataset",
+    )
+    output = format_output(result, fmt="table")
+    assert "2085" in output
+    assert "Revenue" in output
+    assert "big_number_total" in output
+    assert "Main_Dataset" in output
+
+
+def test_format_chart_sql_table():
+    """ChartSQL table displays SQL text."""
+    result = ChartSQL(success=True, sql="SELECT COUNT(*) FROM orders")
+    output = format_output(result, fmt="table")
+    assert "SELECT COUNT(*)" in output
+
+
+def test_format_chart_data_table():
+    """ChartData table shows columnar data with row count."""
+    result = ChartData(
+        success=True,
+        columns=["date", "revenue"],
+        rows=[{"date": "2026-01", "revenue": 100}],
+        row_count=1,
+    )
+    output = format_output(result, fmt="table")
+    assert "date" in output
+    assert "revenue" in output
+    assert "100" in output
+    assert "1 row(s)" in output
+
+
+def test_format_chart_pull_result_table():
+    """ChartPullResult table shows summary."""
+    result = ChartPullResult(success=True, charts_pulled=3, files=["a.yaml", "b.yaml", "c.yaml"])
+    output = format_output(result, fmt="table")
+    assert "3" in output
+    assert "a.yaml" in output
+
+
+def test_format_chart_push_result_table():
+    """ChartPushResult table shows summary."""
+    result = ChartPushResult(success=True, charts_pushed=2)
+    output = format_output(result, fmt="table")
+    assert "2" in output
+
+
+# ── Chart JSON/YAML formats ────────────────────────────────────────
+
+
+def test_format_chart_list_json():
+    """ChartListResult JSON is valid and parseable."""
+    result = ChartListResult(
+        success=True,
+        charts=[ChartSummary(id=1, name="A", viz_type="table")],
+        total=1,
+    )
+    output = format_output(result, fmt="json")
+    parsed = json.loads(output)
+    assert parsed["success"] is True
+    assert len(parsed["charts"]) == 1
+
+
+def test_format_chart_data_json():
+    """ChartData JSON is valid and preserves rows."""
+    result = ChartData(
+        success=True,
+        columns=["date", "revenue"],
+        rows=[{"date": "2026-01", "revenue": 100}],
+        row_count=1,
+    )
+    output = format_output(result, fmt="json")
+    parsed = json.loads(output)
+    assert parsed["success"] is True
+    assert parsed["columns"] == ["date", "revenue"]
+    assert parsed["row_count"] == 1
+
+
+def test_format_chart_info_yaml():
+    """ChartInfo YAML is valid."""
+    result = ChartInfo(success=True, id=2085, name="Revenue", viz_type="big_number_total")
+    output = format_output(result, fmt="yaml")
+    parsed = yaml.safe_load(output)
+    assert parsed["id"] == 2085
+    assert parsed["name"] == "Revenue"
