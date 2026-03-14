@@ -1,4 +1,12 @@
-"""Sync orchestrator: pull + dedup + validate + push + CSS + verify."""
+"""Sync orchestrator: pull + dedup + validate + push + CSS + verify.
+
+Uses preset-cli (pip package: preset-cli) which installs two binaries:
+  - preset-cli: Top-level CLI for Preset Manager API
+  - superset-cli: Direct Superset instance commands
+
+Pull = preset-cli superset export-assets <directory>
+Push = preset-cli superset sync native <directory>
+"""
 import os
 import random
 import shutil
@@ -20,13 +28,17 @@ from scripts.telemetry import get_telemetry
 
 log = get_logger("sync")
 
-# Cached path to the sup binary once discovered
-_sup_path: Optional[str] = None
+# Cached path to the preset-cli binary once discovered
+_cli_path: Optional[str] = None
 
 
-class SupNotFoundError(RuntimeError):
-    """Raised when sup CLI is not available and auto-install fails."""
+class CLINotFoundError(RuntimeError):
+    """Raised when preset-cli is not available."""
     pass
+
+
+# Keep old name as alias for backward compatibility with tests
+SupNotFoundError = CLINotFoundError
 
 
 @dataclass
@@ -37,60 +49,78 @@ class SyncResult:
     error: str = ""
 
 
-def _find_sup() -> Optional[str]:
-    """Find the sup CLI binary. Checks .venv first, then system PATH."""
-    # 1. Check project .venv/bin/sup
-    venv_sup = Path(".venv/bin/sup")
-    if venv_sup.exists():
-        return str(venv_sup.resolve())
+def _find_cli() -> Optional[str]:
+    """Find the preset-cli binary. Checks .venv first, then system PATH."""
+    # 1. Check project .venv/bin/preset-cli
+    venv_cli = Path(".venv/bin/preset-cli")
+    if venv_cli.exists():
+        return str(venv_cli.resolve())
     # 2. Check system PATH
-    system_sup = shutil.which("sup")
-    if system_sup:
-        return system_sup
+    system_cli = shutil.which("preset-cli")
+    if system_cli:
+        return system_cli
     return None
 
 
-def _ensure_sup() -> str:
-    """Find the sup CLI binary and verify it works.
+# Keep old name for backward compatibility with tests
+_find_sup = _find_cli
 
-    Returns the path to the sup binary.
-    Raises SupNotFoundError if sup is not installed — does NOT auto-install.
+
+def _ensure_cli() -> str:
+    """Find the preset-cli binary and verify it works.
+
+    Returns the path to the preset-cli binary.
+    Raises CLINotFoundError if not installed — does NOT auto-install.
     Dependencies should be set up via /preset-toolkit:preset-setup.
     """
-    global _sup_path
-    if _sup_path:
-        return _sup_path
+    global _cli_path
+    if _cli_path:
+        return _cli_path
 
-    found = _find_sup()
+    found = _find_cli()
     if found:
         try:
-            r = subprocess.run([found, "version"], capture_output=True, text=True, timeout=10)
+            r = subprocess.run([found, "--version"], capture_output=True, text=True, timeout=10)
             if r.returncode == 0:
-                _sup_path = found
-                log.debug("Using sup at: %s", found)
+                _cli_path = found
+                log.debug("Using preset-cli at: %s", found)
                 return found
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
-    raise SupNotFoundError(
-        "sup CLI not found. Run /preset-toolkit:preset-setup to install dependencies."
+    raise CLINotFoundError(
+        "preset-cli not found. Run /preset-toolkit:preset-setup to install dependencies."
     )
 
 
-def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> subprocess.CompletedProcess:
-    """Run a sup CLI command with retries. Raises SupNotFoundError if missing."""
-    sup = _ensure_sup()
+# Keep old name for backward compatibility with tests
+_ensure_sup = _ensure_cli
+
+
+def _build_auth_args(config: ToolkitConfig) -> List[str]:
+    """Build auth CLI args from environment or config."""
+    args = []
+    token = os.environ.get("PRESET_API_TOKEN", "")
+    secret = os.environ.get("PRESET_API_SECRET", "")
+    if token and secret:
+        args.extend(["--api-token", token, "--api-secret", secret])
+    return args
+
+
+def _run_cli(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> subprocess.CompletedProcess:
+    """Run a preset-cli command with retries. Raises CLINotFoundError if missing."""
+    cli = _ensure_cli()
     last_result = None
     for attempt in range(1, retries + 1):
         try:
             last_result = subprocess.run(
-                [sup] + args,
+                [cli] + args,
                 capture_output=True, text=True, timeout=120,
             )
         except subprocess.TimeoutExpired:
-            log.warning("sup %s timed out (attempt %d/%d)", " ".join(args), attempt, retries)
+            log.warning("preset-cli %s timed out (attempt %d/%d)", " ".join(args[:3]), attempt, retries)
             last_result = subprocess.CompletedProcess(
-                args=[sup] + args, returncode=1,
+                args=[cli] + args, returncode=1,
                 stdout="", stderr="Command timed out after 120s",
             )
         if last_result.returncode == 0:
@@ -98,30 +128,41 @@ def _run_sup(args: List[str], retries: int = 3, backoff_base: float = 2.0) -> su
         if attempt < retries:
             wait = backoff_base * (2 ** (attempt - 1)) * (0.5 + random.random())
             log.warning(
-                "sup %s failed (attempt %d/%d), retrying in %.1fs...",
-                " ".join(args), attempt, retries, wait,
+                "preset-cli failed (attempt %d/%d), retrying in %.1fs...",
+                attempt, retries, wait,
             )
             time.sleep(wait)
     return last_result
 
 
+# Keep old name for backward compatibility with tests
+_run_sup = _run_cli
+
+
 def pull(config: ToolkitConfig) -> SyncResult:
-    """Pull latest from Preset + dedup."""
+    """Pull latest from Preset via preset-cli export-assets + dedup."""
     t = get_telemetry(config._path)
     result = SyncResult(success=False)
     sync_folder = config.sync_folder
 
     with t.timed("pull"):
-        # Pull
-        r = _run_sup(["sync", "run", sync_folder, "--pull-only", "--force"])
+        # Build command: preset-cli --api-token ... --api-secret ... superset export-assets <dir> --overwrite
+        auth_args = _build_auth_args(config)
+        export_args = auth_args + [
+            "superset", "export-assets", sync_folder,
+            "--overwrite",
+            "--dashboard-ids", str(config.dashboard_id),
+        ]
+
+        r = _run_cli(export_args)
         if r.returncode != 0:
-            result.error = f"sup sync pull failed: {sanitize(r.stderr)}"
-            t.track_error("pull", "sup_failed", sanitize(r.stderr))
+            result.error = f"export-assets failed: {sanitize(r.stderr)}"
+            t.track_error("pull", "export_failed", sanitize(r.stderr))
             return result
         result.steps_completed.append("pull")
 
         # Dedup charts
-        assets = Path(sync_folder) / "assets"
+        assets = Path(sync_folder)
         charts_dir = assets / "charts"
         if charts_dir.exists():
             removed = apply_dedup(charts_dir)
@@ -156,24 +197,23 @@ def pull(config: ToolkitConfig) -> SyncResult:
 
 
 def validate(config: ToolkitConfig) -> SyncResult:
-    """Validate sync folder + check markers."""
+    """Validate sync folder — check markers and structure."""
     t = get_telemetry(config._path)
     result = SyncResult(success=False)
     sync_folder = config.sync_folder
 
     with t.timed("validate"):
-        # Validate
-        r = _run_sup(["sync", "validate", sync_folder])
-        if r.returncode != 0:
-            result.error = f"Validation failed: {sanitize(r.stderr)}"
-            t.track_error("validate", "sup_validate_failed", sanitize(r.stderr))
+        # Check sync folder exists and has content
+        assets = Path(sync_folder)
+        if not assets.exists():
+            result.error = f"Sync folder '{sync_folder}' does not exist. Run pull first."
+            t.track_error("validate", "no_sync_folder", result.error)
             return result
-        result.steps_completed.append("validate")
+        result.steps_completed.append("validate: sync folder exists")
 
         # Marker check
         markers_file = Path(config.get("validation.markers_file", ".preset-toolkit/markers.txt"))
         if markers_file.exists():
-            assets = Path(sync_folder) / "assets"
             dataset_yamls = list((assets / "datasets").rglob("*.yaml")) if (assets / "datasets").exists() else []
             for ds in dataset_yamls:
                 mr = check_markers(ds, markers_file)
@@ -182,14 +222,6 @@ def validate(config: ToolkitConfig) -> SyncResult:
                     t.track_error("validate", "missing_markers", result.error)
                     return result
             result.steps_completed.append("markers: all present")
-
-        # Dry-run
-        r = _run_sup(["sync", "run", sync_folder, "--push-only", "--dry-run", "--force"])
-        if r.returncode != 0:
-            result.error = f"Dry-run failed: {sanitize(r.stderr)}"
-            t.track_error("validate", "dry_run_failed", sanitize(r.stderr))
-            return result
-        result.steps_completed.append("dry-run")
 
         result.success = True
     return result
@@ -201,7 +233,7 @@ def push(
     sync_only: bool = False,
     dry_run: bool = False,
 ) -> SyncResult:
-    """Full push: validate + sup sync push + CSS push + verify."""
+    """Full push: validate + preset-cli sync native + CSS push."""
     t = get_telemetry(config._path)
     result = SyncResult(success=False)
 
@@ -220,12 +252,17 @@ def push(
     sync_folder = config.sync_folder
 
     with t.timed("push", css_only=css_only, sync_only=sync_only):
-        # Push datasets/charts via sup sync
+        # Push via preset-cli superset sync native
         if not css_only:
-            r = _run_sup(["sync", "run", sync_folder, "--push-only", "--force"])
+            auth_args = _build_auth_args(config)
+            push_args = auth_args + [
+                "superset", "sync", "native", sync_folder,
+                "--overwrite",
+            ]
+            r = _run_cli(push_args)
             if r.returncode != 0:
-                result.error = f"sup sync push failed: {sanitize(r.stderr)}"
-                t.track_error("push", "sup_push_failed", sanitize(r.stderr))
+                result.error = f"sync native push failed: {sanitize(r.stderr)}"
+                t.track_error("push", "sync_native_failed", sanitize(r.stderr))
                 return result
             result.steps_completed.append("push: datasets/charts")
 
@@ -233,8 +270,7 @@ def push(
         if not sync_only and config.get("css.push_via_api", True):
             try:
                 from scripts.push_dashboard import push_css_and_position
-                # Read CSS from dashboard YAML
-                dash_dir = Path(sync_folder) / "assets" / "dashboards"
+                dash_dir = Path(sync_folder) / "dashboards"
                 dash_yamls = list(dash_dir.glob("*.yaml")) if dash_dir.exists() else []
                 if dash_yamls:
                     import yaml
@@ -256,7 +292,7 @@ def push(
 
         # Save fingerprint (v2 per-file map)
         fp_file = Path(config.get("validation.fingerprint_file", ".preset-toolkit/.last-push-fingerprint"))
-        assets = Path(sync_folder) / "assets"
+        assets = Path(sync_folder)
         try:
             fp_map = compute_fingerprint_map(assets)
             save_fingerprint_map(fp_map, fp_file)

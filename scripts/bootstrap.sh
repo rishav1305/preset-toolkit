@@ -109,28 +109,27 @@ for pkg in PyYAML Pillow httpx playwright; do
     fi
 done
 
-# preset-cli check — verify both the package AND the sup binary work
-SUP_STATUS=$(echo "$DEP_RESULT" | $VENV_PY -c "import json,sys; d=json.load(sys.stdin); print(d.get('preset-cli','missing'))" 2>/dev/null || echo "missing")
-if [ "$SUP_STATUS" != "missing" ] && [ -f ".venv/bin/sup" ]; then
-    # Verify sup actually runs
-    if .venv/bin/sup version >/dev/null 2>&1; then
-        ok "preset-cli v${SUP_STATUS} (.venv/bin/sup) — verified"
+# preset-cli check — verify both the package AND the binary work
+CLI_STATUS=$(echo "$DEP_RESULT" | $VENV_PY -c "import json,sys; d=json.load(sys.stdin); print(d.get('preset-cli','missing'))" 2>/dev/null || echo "missing")
+if [ "$CLI_STATUS" != "missing" ] && [ -f ".venv/bin/preset-cli" ]; then
+    if .venv/bin/preset-cli --version >/dev/null 2>&1; then
+        ok "preset-cli v${CLI_STATUS} (.venv/bin/preset-cli) — verified"
     else
-        warn "preset-cli v${SUP_STATUS} installed but sup won't run — reinstalling..."
+        warn "preset-cli v${CLI_STATUS} installed but won't run — reinstalling..."
         $VENV_PIP install -q --force-reinstall preset-cli 2>&1 | grep -v "notice" || true
-        if .venv/bin/sup version >/dev/null 2>&1; then
+        if .venv/bin/preset-cli --version >/dev/null 2>&1; then
             ok "preset-cli reinstalled and verified"
         else
-            fail "preset-cli — sup binary broken after reinstall"
+            fail "preset-cli binary broken after reinstall"
         fi
     fi
 else
     warn "preset-cli not installed — trying reinstall..."
     $VENV_PIP install -q --force-reinstall preset-cli 2>&1 | grep -v "notice" || true
-    if [ -f ".venv/bin/sup" ] && .venv/bin/sup version >/dev/null 2>&1; then
+    if [ -f ".venv/bin/preset-cli" ] && .venv/bin/preset-cli --version >/dev/null 2>&1; then
         ok "preset-cli installed and verified"
     else
-        fail "preset-cli — sup binary not found after install"
+        fail "preset-cli binary not found after install"
     fi
 fi
 
