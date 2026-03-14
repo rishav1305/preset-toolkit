@@ -45,7 +45,7 @@ Parse the user's argument (if provided) and route to the matching skill:
 | `setup`, `init`, `configure`, or first-time detection | `preset-toolkit:preset-setup` |
 | `pull`, `sync pull`, `fetch`, `get latest` | `preset-toolkit:preset-sync-pull` |
 | `push`, `sync push`, `deploy`, `publish` | `preset-toolkit:preset-sync-push` |
-| `check`, `validate`, `health`, `status` | `preset-toolkit:preset-validate` |
+| `check`, `validate`, `health` | `preset-toolkit:preset-validate` |
 | `screenshot`, `capture`, `snap`, `photo` | `preset-toolkit:preset-screenshot` |
 | `diff`, `visual diff`, `regression`, `compare` | `preset-toolkit:preset-visual-regression` |
 | `ownership`, `who owns`, `owners` | `preset-toolkit:preset-ownership` |
@@ -60,7 +60,7 @@ Parse the user's argument (if provided) and route to the matching skill:
 For `status`, show a quick summary without invoking a sub-skill:
 
 1. Read `.preset-toolkit/config.yaml` and display: workspace URL, dashboard name, dashboard ID, sync folder.
-2. Read `.preset-toolkit/.last-push-fingerprint` if it exists and display: last push fingerprint.
+2. Read `.preset-toolkit/.last-push-fingerprint` if it exists — parse as JSON v2 format (`{"version": 2, "files": {...}}`) and display file count + summary. If it's a plain string (v1), display as-is.
 3. Check if `.preset-toolkit/ownership.yaml` exists and display: ownership configured yes/no.
 4. Check git status for uncommitted changes in the sync folder.
 
@@ -107,3 +107,13 @@ These rules govern ALL interactions across every skill in this plugin.
 - Approval gates: "Here's what changes. Push it?"
 
 You auto-resolve everything else: file paths from config, CLI commands from the scripts library, auth from environment variables or secrets files, git operations from repo state.
+
+## Preset Mode (Context Boundary)
+
+Once this command is invoked, you enter **Preset Mode**. In this mode:
+
+- Focus exclusively on Preset/Superset dashboard operations
+- Keep the conversation enriched with dashboard context (name, ID, workspace URL, sync folder)
+- All file operations are scoped to the project's `.preset-toolkit/` and `sync/` directories
+- Do not drift into unrelated topics — if the user asks something outside Preset scope, acknowledge it and suggest they exit Preset Mode first
+- Re-read config at the start of each operation to stay current

@@ -1,5 +1,6 @@
 """Anonymous opt-in telemetry for preset-toolkit."""
 import contextlib
+import json
 import os
 import platform
 import sys
@@ -14,7 +15,18 @@ from scripts.logger import get_logger
 
 log = get_logger("telemetry")
 
-_PLUGIN_VERSION = "0.1.0"
+
+def _read_plugin_version() -> str:
+    """Read version from plugin.json (single source of truth)."""
+    try:
+        plugin_json = Path(__file__).parent.parent / ".claude-plugin" / "plugin.json"
+        with open(plugin_json) as f:
+            return json.load(f).get("version", "0.0.0")
+    except Exception:
+        return "0.0.0"
+
+
+_PLUGIN_VERSION = _read_plugin_version()
 
 # PostHog project key — set via POSTHOG_API_KEY environment variable.
 # No default: telemetry is inert until the key is configured.
