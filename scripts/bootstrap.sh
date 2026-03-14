@@ -50,47 +50,61 @@ else
     ok ".venv/ created"
 fi
 
-# ── Phase 3: Dependencies ─────────────────────────────────────────────
+# ── Phase 3: Dependencies (batched) ──────────────────────────────────
 
 head "Dependencies"
 
 VENV_PIP=".venv/bin/pip"
 VENV_PY=".venv/bin/python3"
 
-# Install all packages
+# Install all packages in one call
 info "Installing packages..."
 $VENV_PIP install -q PyYAML Pillow httpx preset-cli 2>&1 | grep -v "notice" || true
 
-# Verify each one
-for pkg in yaml PIL httpx; do
-    if $VENV_PY -c "import ${pkg}" 2>/dev/null; then
-        case $pkg in
-            yaml) ok "PyYAML" ;;
-            PIL)  ok "Pillow" ;;
-            httpx) ok "httpx" ;;
-        esac
+# Batched verification — single Python call checks all deps at once
+DEP_RESULT=$($VENV_PY -c "
+import json, importlib, importlib.metadata, shutil
+results = {}
+for mod, name in [('yaml','PyYAML'), ('PIL','Pillow'), ('httpx','httpx')]:
+    try:
+        importlib.import_module(mod)
+        results[name] = 'ok'
+    except ImportError:
+        results[name] = 'fail'
+# Check preset-cli
+try:
+    ver = importlib.metadata.version('preset-cli')
+    results['preset-cli'] = ver
+except Exception:
+    results['preset-cli'] = 'missing'
+print(json.dumps(results))
+" 2>/dev/null || echo '{}')
+
+# Parse results
+for pkg in PyYAML Pillow httpx; do
+    STATUS=$(echo "$DEP_RESULT" | $VENV_PY -c "import json,sys; d=json.load(sys.stdin); print(d.get('$pkg','fail'))" 2>/dev/null || echo "fail")
+    if [ "$STATUS" = "ok" ]; then
+        ok "$pkg"
     else
-        case $pkg in
-            yaml) fail "PyYAML — import failed" ;;
-            PIL)  fail "Pillow — import failed" ;;
-            httpx) fail "httpx — import failed" ;;
-        esac
+        fail "$pkg — import failed"
     fi
 done
 
-# Verify preset-cli (sup)
-if [ -f ".venv/bin/sup" ]; then
-    SUP_VER=$($VENV_PY -c "import importlib.metadata; print(importlib.metadata.version('preset-cli'))" 2>/dev/null || echo "unknown")
-    ok "preset-cli v${SUP_VER} (.venv/bin/sup)"
-elif command -v sup >/dev/null 2>&1; then
-    ok "preset-cli (system: $(which sup))"
+# preset-cli check
+SUP_STATUS=$(echo "$DEP_RESULT" | $VENV_PY -c "import json,sys; d=json.load(sys.stdin); print(d.get('preset-cli','missing'))" 2>/dev/null || echo "missing")
+if [ "$SUP_STATUS" != "missing" ]; then
+    if [ -f ".venv/bin/sup" ]; then
+        ok "preset-cli v${SUP_STATUS} (.venv/bin/sup)"
+    else
+        ok "preset-cli v${SUP_STATUS} (installed, sup binary via PATH)"
+    fi
 else
-    warn "preset-cli not in venv — trying reinstall..."
+    warn "preset-cli not installed — trying reinstall..."
     $VENV_PIP install -q --force-reinstall preset-cli 2>&1 | grep -v "notice" || true
     if [ -f ".venv/bin/sup" ]; then
         ok "preset-cli installed on retry"
     else
-        fail "preset-cli — sup binary not found in .venv/bin/"
+        fail "preset-cli — sup binary not found"
     fi
 fi
 
@@ -106,9 +120,37 @@ ok "sync/ folder"
 
 head "Authentication"
 
+WORKSPACE_URL="${1:-}"
+
 if [ -n "${PRESET_API_TOKEN:-}" ] && [ -n "${PRESET_API_SECRET:-}" ]; then
     ok "PRESET_API_TOKEN is set"
     ok "PRESET_API_SECRET is set"
+
+    # Validate credentials if workspace URL provided
+    if [ -n "$WORKSPACE_URL" ]; then
+        info "Validating credentials against ${WORKSPACE_URL}..."
+        AUTH_RESULT=$($VENV_PY -c "
+import httpx, json, sys
+url = sys.argv[1].rstrip('/') + '/api/v1/security/login'
+try:
+    resp = httpx.post(url, json={
+        'token': '${PRESET_API_TOKEN}',
+        'secret': '${PRESET_API_SECRET}'
+    }, timeout=10)
+    if resp.status_code == 200 and resp.json().get('access_token'):
+        print('OK')
+    else:
+        print('FAIL:' + str(resp.status_code))
+except Exception as e:
+    print('ERROR:' + str(e)[:100])
+" "$WORKSPACE_URL" 2>/dev/null || echo "ERROR:python failed")
+
+        case "$AUTH_RESULT" in
+            OK)    ok "Authenticated to ${WORKSPACE_URL}" ;;
+            FAIL*) warn "Authentication failed (${AUTH_RESULT#FAIL:}) — credentials may be invalid" ;;
+            *)     warn "Could not validate credentials (${AUTH_RESULT#ERROR:})" ;;
+        esac
+    fi
     echo "AUTH=SET"
 else
     if [ -z "${PRESET_API_TOKEN:-}" ]; then

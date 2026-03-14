@@ -38,8 +38,10 @@ Extract workspace ID from the URL subdomain (e.g., `834639b2` from `https://8346
 Run the bootstrap script which handles everything: venv, deps, directories, auth check.
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.sh"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.sh" "{{workspace_url}}"
 ```
+
+Pass the workspace URL (from Step 1) so bootstrap can validate credentials against the actual workspace.
 
 `CLAUDE_PLUGIN_ROOT` is automatically set by Claude Code to the plugin's install path. If it is not set, find the plugin root by searching for the bootstrap script:
 
