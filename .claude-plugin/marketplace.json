@@ -7,10 +7,7 @@
   "plugins": [
     {
       "name": "preset-toolkit",
-      "source": {
-        "source": "github",
-        "repo": "rishav1305/preset-toolkit"
-      },
+      "source": "./",
       "description": "Dashboard management toolkit for Preset/Superset — sync, validate, push, screenshot, visual regression, ownership",
       "version": "0.5.0"
     }
