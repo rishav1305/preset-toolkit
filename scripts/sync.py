@@ -8,6 +8,7 @@ Uses the sup CLI (pip package: superset-sup) for sync operations:
 Requires sync_config.yml in the sync folder.
 """
 import os
+import re
 import random
 import shutil
 import subprocess
@@ -81,6 +82,38 @@ class DryRunResult:
     steps_completed: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     error: str = ""
+
+
+# Pattern: "Creating|Updating|Deleting <type> "<name>""
+_DRY_RUN_PATTERN = re.compile(
+    r"(creating|updating|deleting)\s+(chart|dataset|dashboard)\s+\"([^\"]+)\"",
+    re.IGNORECASE,
+)
+
+_ACTION_MAP = {
+    "creating": ChangeAction.CREATE,
+    "updating": ChangeAction.UPDATE,
+    "deleting": ChangeAction.DELETE,
+}
+
+
+def _parse_dry_run_output(stdout: str) -> List[AssetChange]:
+    """Parse sup CLI dry-run stdout into structured AssetChange objects.
+
+    Looks for lines matching: Creating|Updating|Deleting <type> "<name>"
+    Returns empty list if no lines match (graceful degradation).
+    """
+    changes = []
+    for line in stdout.splitlines():
+        match = _DRY_RUN_PATTERN.search(line)
+        if match:
+            action_str, asset_type, name = match.groups()
+            changes.append(AssetChange(
+                asset_type=asset_type.lower(),
+                name=name,
+                action=_ACTION_MAP[action_str.lower()],
+            ))
+    return changes
 
 
 def _find_sup() -> Optional[str]:

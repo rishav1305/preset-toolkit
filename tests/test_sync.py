@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import yaml
 import scripts.sync as sync_mod
-from scripts.sync import _run_sup, SyncResult, SupNotFoundError, CLINotFoundError, pull, validate, push, ChangeAction, AssetChange, DryRunResult
+from scripts.sync import _run_sup, SyncResult, SupNotFoundError, CLINotFoundError, pull, validate, push, ChangeAction, AssetChange, DryRunResult, _parse_dry_run_output
 from scripts.config import ToolkitConfig
 
 
@@ -259,3 +259,75 @@ def test_dry_run_result_partial_failure():
     assert result.validation_passed is True
     assert result.markers_passed is False
     assert "Missing markers" in result.error
+
+
+# ---------------------------------------------------------------------------
+# Task 3: _parse_dry_run_output parser
+# ---------------------------------------------------------------------------
+
+def test_parse_creating_chart():
+    """Parser extracts 'Creating chart' lines."""
+    output = 'Creating chart "Revenue Overview"'
+    changes = _parse_dry_run_output(output)
+    assert len(changes) == 1
+    assert changes[0].asset_type == "chart"
+    assert changes[0].name == "Revenue Overview"
+    assert changes[0].action == ChangeAction.CREATE
+
+
+def test_parse_updating_dataset():
+    """Parser extracts 'Updating dataset' lines."""
+    output = 'Updating dataset "Main_Dataset"'
+    changes = _parse_dry_run_output(output)
+    assert len(changes) == 1
+    assert changes[0].asset_type == "dataset"
+    assert changes[0].name == "Main_Dataset"
+    assert changes[0].action == ChangeAction.UPDATE
+
+
+def test_parse_deleting_dashboard():
+    """Parser extracts 'Deleting dashboard' lines."""
+    output = 'Deleting dashboard "Old Dashboard"'
+    changes = _parse_dry_run_output(output)
+    assert len(changes) == 1
+    assert changes[0].asset_type == "dashboard"
+    assert changes[0].action == ChangeAction.DELETE
+
+
+def test_parse_mixed_output():
+    """Parser handles mixed create/update/delete in one output."""
+    output = """sup sync v0.5.0
+Validating sync folder...
+Creating chart "New Chart"
+Updating dataset "Main_Dataset"
+Updating chart "Revenue Overview"
+Deleting chart "Old Chart"
+Done. 4 changes detected."""
+    changes = _parse_dry_run_output(output)
+    assert len(changes) == 4
+    actions = [c.action for c in changes]
+    assert actions.count(ChangeAction.CREATE) == 1
+    assert actions.count(ChangeAction.UPDATE) == 2
+    assert actions.count(ChangeAction.DELETE) == 1
+
+
+def test_parse_empty_output():
+    """Parser returns empty list for empty output."""
+    assert _parse_dry_run_output("") == []
+
+
+def test_parse_no_matching_lines():
+    """Parser returns empty list when no lines match the pattern."""
+    output = """sup sync v0.5.0
+Validating sync folder...
+All assets up to date.
+Done."""
+    assert _parse_dry_run_output(output) == []
+
+
+def test_parse_case_insensitive():
+    """Parser handles case variations in sup output."""
+    output = 'creating chart "Test"'
+    changes = _parse_dry_run_output(output)
+    assert len(changes) == 1
+    assert changes[0].action == ChangeAction.CREATE
