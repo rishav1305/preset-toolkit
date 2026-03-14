@@ -105,22 +105,30 @@ Capture and display the output. This shows exactly what would change on Preset.
 
 ### Step 5: Approval Gate
 
-Present a summary and ask for approval:
+Present a structured summary using `DryRunResult` from validate():
+
+```python
+from scripts.formatter import format_output
+
+# result is the DryRunResult from validate()
+print(format_output(result, fmt="table"))
+```
+
+This renders:
 
 ```
-Push Summary
+Validation: PASSED
+Markers:    PASSED
 
-  Validation: PASSED
-  Markers: All present (X/X)
-  Ownership: No warnings / X advisory warnings (see above)
+Action       Type         Name
+--------------------------------------------------
+create       chart        New Revenue Chart
+update       dataset      Main_Dataset
 
-  Dry-run output:
-    <dry-run output from sup sync>
-
-  Push mode: Full (datasets/charts + CSS) / CSS-only / Sync-only
-
-  Push these changes to Preset? (yes/no)
+2 change(s) detected.
 ```
+
+If no structured changes are parsed, the raw sup output is shown as fallback.
 
 **This is the only approval question in the push flow.** Wait for explicit "yes" before proceeding.
 

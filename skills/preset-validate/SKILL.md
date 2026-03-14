@@ -116,13 +116,22 @@ If issues are found, provide specific remediation steps for each one.
 ## Using the Python API
 
 ```python
-from scripts.sync import validate
+from scripts.sync import validate, DryRunResult
+from scripts.formatter import format_output
 from scripts.config import ToolkitConfig
 
 config = ToolkitConfig.discover()
 result = validate(config)
 
-# result.success -- bool
-# result.steps_completed -- list of step descriptions
-# result.error -- error message if failed
+# result is a DryRunResult:
+# result.success -- bool (True only if all checks pass)
+# result.validation_passed -- bool (sup sync validate passed)
+# result.markers_passed -- bool (all markers found)
+# result.changes -- List[AssetChange] (parsed from dry-run output)
+# result.raw_output -- str (original sup dry-run stdout)
+# result.steps_completed -- List[str] (step descriptions)
+# result.error -- str (error message if failed)
+
+# Format output as table, json, or yaml:
+print(format_output(result, fmt="table"))
 ```
