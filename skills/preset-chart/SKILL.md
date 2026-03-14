@@ -44,7 +44,7 @@ config = ToolkitConfig.discover()
 | "what SQL does chart 2085 use?", "sql for 2085" | `get_chart_sql(config, chart_id=2085)` | |
 | "get data from chart 2088", "run chart 2088" | `get_chart_data(config, chart_id=2088)` | |
 | "pull chart 2085", "download chart 2085" | `pull_charts(config, chart_id=2085)` | |
-| "pull charts 2085,2088,2090" | `pull_charts(config, chart_ids="2085,2088,2090")` | |
+| "pull charts 2085,2088,2090" | `pull_charts(config, chart_ids=[2085, 2088, 2090])` | |
 | "push charts", "upload charts" | `push_charts(config)` | |
 
 ## Execution
