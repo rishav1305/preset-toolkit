@@ -135,37 +135,9 @@ ok "sync/ folder"
 
 head "Authentication"
 
-WORKSPACE_URL="${1:-}"
-
 if [ -n "${PRESET_API_TOKEN:-}" ] && [ -n "${PRESET_API_SECRET:-}" ]; then
     ok "PRESET_API_TOKEN is set"
     ok "PRESET_API_SECRET is set"
-
-    # Validate credentials if workspace URL provided
-    if [ -n "$WORKSPACE_URL" ]; then
-        info "Validating credentials against ${WORKSPACE_URL}..."
-        AUTH_RESULT=$($VENV_PY -c "
-import httpx, json, sys
-url = sys.argv[1].rstrip('/') + '/api/v1/security/login'
-try:
-    resp = httpx.post(url, json={
-        'token': '${PRESET_API_TOKEN}',
-        'secret': '${PRESET_API_SECRET}'
-    }, timeout=10)
-    if resp.status_code == 200 and resp.json().get('access_token'):
-        print('OK')
-    else:
-        print('FAIL:' + str(resp.status_code))
-except Exception as e:
-    print('ERROR:' + str(e)[:100])
-" "$WORKSPACE_URL" 2>/dev/null || echo "ERROR:python failed")
-
-        case "$AUTH_RESULT" in
-            OK)    ok "Authenticated to ${WORKSPACE_URL}" ;;
-            FAIL*) warn "Authentication failed (${AUTH_RESULT#FAIL:}) — credentials may be invalid" ;;
-            *)     warn "Could not validate credentials (${AUTH_RESULT#ERROR:})" ;;
-        esac
-    fi
     echo "AUTH=SET"
 else
     if [ -z "${PRESET_API_TOKEN:-}" ]; then

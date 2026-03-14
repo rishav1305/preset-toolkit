@@ -83,7 +83,8 @@ result = capture_sync(
 Tell the user:
 ```
 Opening browser for Preset login.
-Log in with your credentials, then the screenshot will be captured automatically.
+Log in with your credentials — the browser will stay open for up to 5 minutes.
+Once you're on the dashboard, the screenshot will be captured automatically.
 ```
 
 After login, the storage state is saved automatically for future headless runs.

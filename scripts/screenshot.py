@@ -56,7 +56,29 @@ async def capture_dashboard(
             try:
                 nav_timeout = config.get("screenshots.navigation_timeout", 60) * 1000
                 await page.goto(dashboard_url, wait_until="networkidle", timeout=nav_timeout)
-                await page.wait_for_timeout(wait_ms)
+
+                # Interactive login: if browser is visible and we landed on a
+                # login page, wait for the user to authenticate before proceeding.
+                if not headless:
+                    login_timeout = 5 * 60 * 1000  # 5 minutes for user to log in
+                    current_url = page.url
+                    on_login_page = "/login" in current_url or "/superset/welcome" in current_url
+                    if on_login_page:
+                        log.info("Waiting for login — complete sign-in in the browser...")
+                        try:
+                            await page.wait_for_url(
+                                f"**/dashboard/{config.dashboard_id}/**",
+                                timeout=login_timeout,
+                            )
+                            # Give the dashboard time to fully render after login redirect
+                            await page.wait_for_timeout(wait_ms)
+                        except Exception:
+                            result.error = "Login timed out — browser was closed or login took too long"
+                            return result
+                    else:
+                        await page.wait_for_timeout(wait_ms)
+                else:
+                    await page.wait_for_timeout(wait_ms)
             except Exception as e:
                 log.error("Dashboard navigation failed: %s", e)
                 result.error = f"Navigation failed: {e}"

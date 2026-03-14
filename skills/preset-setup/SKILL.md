@@ -37,17 +37,13 @@ Extract workspace ID from the URL subdomain (e.g., `834639b2` from `https://8346
 
 Run the bootstrap script which handles everything: venv, deps, directories, auth check.
 
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.sh" "{{workspace_url}}"
-```
-
-Pass the workspace URL (from Step 1) so bootstrap can validate credentials against the actual workspace.
-
-`CLAUDE_PLUGIN_ROOT` is automatically set by Claude Code to the plugin's install path. If it is not set, find the plugin root by searching for the bootstrap script:
+Find and run the script — the install location varies, so search both cache and marketplace dirs:
 
 ```bash
-bash "$(find ~/.claude/plugins/cache -path "*/preset-toolkit/*/scripts/bootstrap.sh" -print -quit 2>/dev/null)"
+BOOT=$(find ~/.claude/plugins -name "bootstrap.sh" -path "*/preset-toolkit/*" -print -quit 2>/dev/null) && bash "$BOOT"
 ```
+
+If the find returns nothing, fall back to inline setup (see Error Recovery).
 
 The script outputs color-coded status lines:
 - `✓` = available/installed
