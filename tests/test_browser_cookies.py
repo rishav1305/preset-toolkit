@@ -10,6 +10,7 @@ from scripts.browser_cookies import (
     _extract_chromium_cookies,
     _extract_firefox_cookies,
     _get_chromium_key,
+    _has_cookies_for_domain,
     extract_cookies,
 )
 
@@ -194,6 +195,72 @@ def test_extract_firefox_cookies_from_mock_db(tmp_path):
     assert len(result) == 1
     assert result[0]["name"] == "session"
     assert result[0]["value"] == "firefox_val"
+
+
+# ── Pre-scan tests ───────────────────────────────────────────────────
+
+
+def test_has_cookies_for_domain_true(tmp_path):
+    """Pre-scan should return True when matching cookies exist."""
+    key = b"\x00" * 16
+    db_path = tmp_path / "Cookies"
+    _create_chromium_cookie_db(db_path, [
+        {"domain": ".preset.io", "name": "session", "value": "abc"},
+    ], key)
+    assert _has_cookies_for_domain(db_path, "preset.io") is True
+
+
+def test_has_cookies_for_domain_false(tmp_path):
+    """Pre-scan should return False when no matching cookies exist."""
+    key = b"\x00" * 16
+    db_path = tmp_path / "Cookies"
+    _create_chromium_cookie_db(db_path, [
+        {"domain": ".google.com", "name": "NID", "value": "xyz"},
+    ], key)
+    assert _has_cookies_for_domain(db_path, "preset.io") is False
+
+
+def test_has_cookies_for_domain_missing_db(tmp_path):
+    """Pre-scan should return False when DB doesn't exist."""
+    assert _has_cookies_for_domain(tmp_path / "nonexistent", "preset.io") is False
+
+
+def test_prescan_prevents_keychain_prompt(tmp_path):
+    """Only browsers with matching cookies should trigger Keychain access."""
+    key = b"\x00" * 16
+
+    app_support = tmp_path / "Library" / "Application Support"
+
+    # Create Chrome DB WITH preset.io cookies
+    chrome_dir = app_support / "Google" / "Chrome" / "Default"
+    chrome_dir.mkdir(parents=True)
+    _create_chromium_cookie_db(chrome_dir / "Cookies", [
+        {"domain": ".preset.io", "name": "session", "value": "val"},
+    ], key)
+
+    # Create Edge DB WITHOUT preset.io cookies
+    edge_dir = app_support / "Microsoft Edge" / "Default"
+    edge_dir.mkdir(parents=True)
+    _create_chromium_cookie_db(edge_dir / "Cookies", [
+        {"domain": ".bing.com", "name": "other", "value": "x"},
+    ], key)
+
+    keychain_calls = []
+    original_get_key = _get_chromium_key
+
+    def tracking_get_key(service, account):
+        keychain_calls.append(account)
+        return key
+
+    with patch("scripts.browser_cookies.Path.home", return_value=tmp_path):
+        with patch("scripts.browser_cookies._get_chromium_key", side_effect=tracking_get_key):
+            with patch("scripts.browser_cookies._find_firefox_profile", return_value=None):
+                # Patch app_support to use tmp_path
+                extract_cookies("preset.io")
+
+    # Only Chrome should have triggered a Keychain call, not Edge
+    assert "Chrome" in keychain_calls
+    assert "Microsoft Edge" not in keychain_calls
 
 
 # ── Public API tests ─────────────────────────────────────────────────

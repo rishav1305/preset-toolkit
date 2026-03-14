@@ -96,6 +96,36 @@ def _get_chromium_key(keychain_service: str, keychain_account: str) -> Optional[
         return None
 
 
+def _has_cookies_for_domain(cookie_db: Path, domain: str) -> bool:
+    """Check if a Chromium cookie DB has any rows matching the domain.
+
+    Reads the DB without decryption — no Keychain access needed.
+    Returns True if at least one cookie matches.
+    """
+    if not cookie_db.exists():
+        return False
+
+    tmp_path = None
+    try:
+        fd, tmp_path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        shutil.copy2(str(cookie_db), tmp_path)
+
+        conn = sqlite3.connect(tmp_path)
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM cookies WHERE host_key LIKE ?",
+            (f"%{domain}%",),
+        )
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count > 0
+    except Exception:
+        return False
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
 def _extract_chromium_cookies(
     cookie_db: Path,
     keychain_service: str,
@@ -242,41 +272,35 @@ def extract_cookies(domain: str) -> List[Dict]:
     """
     app_support = Path.home() / "Library" / "Application Support"
 
-    # Try Chrome first (most common)
-    chrome_entry = _CHROMIUM_BROWSERS[0]
-    cookie_db = app_support / chrome_entry["cookie_path"]
-    if cookie_db.exists():
+    # Pre-scan: find which Chromium browsers actually have cookies for this domain.
+    # This avoids triggering Keychain prompts for browsers with no matching cookies.
+    chromium_with_cookies = []
+    for entry in _CHROMIUM_BROWSERS:
+        cookie_db = app_support / entry["cookie_path"]
+        if _has_cookies_for_domain(cookie_db, domain):
+            chromium_with_cookies.append(entry)
+            log.debug("Found %s cookies in %s", domain, entry["name"])
+
+    # Try the first Chromium browser that has matching cookies (only 1 Keychain prompt)
+    for entry in chromium_with_cookies:
+        cookie_db = app_support / entry["cookie_path"]
         cookies = _extract_chromium_cookies(
             cookie_db,
-            chrome_entry["keychain_service"],
-            chrome_entry["keychain_account"],
+            entry["keychain_service"],
+            entry["keychain_account"],
             domain,
         )
         if cookies:
-            log.info("Extracted %d cookies from %s", len(cookies), chrome_entry["name"])
+            log.info("Extracted %d cookies from %s", len(cookies), entry["name"])
             return cookies
 
-    # Try Firefox
+    # Try Firefox (no Keychain needed)
     profile = _find_firefox_profile()
     if profile:
         cookies = _extract_firefox_cookies(profile, domain)
         if cookies:
             log.info("Extracted %d cookies from Firefox", len(cookies))
             return cookies
-
-    # Try remaining Chromium browsers (Edge, Arc)
-    for entry in _CHROMIUM_BROWSERS[1:]:
-        cookie_db = app_support / entry["cookie_path"]
-        if cookie_db.exists():
-            cookies = _extract_chromium_cookies(
-                cookie_db,
-                entry["keychain_service"],
-                entry["keychain_account"],
-                domain,
-            )
-            if cookies:
-                log.info("Extracted %d cookies from %s", len(cookies), entry["name"])
-                return cookies
 
     log.debug("No browser cookies found for %s", domain)
     return []
