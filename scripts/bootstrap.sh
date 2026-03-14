@@ -38,6 +38,21 @@ else
     warn "Git not found — some features won't work"
 fi
 
+# Enterprise environment detection
+if [ -n "${HTTP_PROXY:-}" ] || [ -n "${HTTPS_PROXY:-}" ]; then
+    info "Proxy detected: ${HTTPS_PROXY:-$HTTP_PROXY}"
+fi
+if [ -n "${SSL_CERT_FILE:-}" ]; then
+    info "Custom CA bundle: $SSL_CERT_FILE"
+elif [ -n "${REQUESTS_CA_BUNDLE:-}" ]; then
+    info "Custom CA bundle: $REQUESTS_CA_BUNDLE"
+fi
+PY_PATH=$(command -v python3 2>/dev/null || true)
+case "$PY_PATH" in
+    /opt/*|/usr/local/Cellar/*|/Library/Frameworks/*)
+        info "System Python: $PY_PATH" ;;
+esac
+
 # ── Phase 2: Virtual Environment ──────────────────────────────────────
 
 head "Virtual Environment"
