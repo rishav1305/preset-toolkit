@@ -18,6 +18,7 @@ from scripts.chart import (
     get_chart_sql,
     get_chart_data,
     pull_charts,
+    push_charts,
 )
 from scripts.config import ToolkitConfig
 
@@ -412,3 +413,62 @@ def test_pull_charts_failure(tmp_path):
 
     assert result.success is False
     assert "pull failed" in result.error
+
+
+# ── push_charts ───────────────────────────────────────────────────
+
+def test_push_charts_success(tmp_path):
+    """push_charts parses charts_pushed and errors from JSON."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "charts_pushed": 3,
+        "errors": [],
+    })
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = push_charts(cfg)
+
+    assert result.success is True
+    assert result.charts_pushed == 3
+    assert result.errors == []
+
+    args = mock_sup.call_args[0][0]
+    assert "chart" in args
+    assert "push" in args
+    assert "--json" in args
+    assert "--force" in args
+
+
+def test_push_charts_with_flags(tmp_path):
+    """push_charts maps overwrite=False, force=False, continue_on_error=True, load_env=True."""
+    cfg = _make_chart_config(tmp_path)
+    sup_json = json_mod.dumps({"charts_pushed": 0, "errors": []})
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        push_charts(
+            cfg,
+            assets_folder="/tmp/assets",
+            overwrite=False,
+            force=False,
+            continue_on_error=True,
+            load_env=True,
+        )
+
+    args = mock_sup.call_args[0][0]
+    assert "--no-overwrite" in args
+    assert "--force" not in args
+    assert "--continue-on-error" in args
+    assert "--load-env" in args
+    assert "--assets-folder" in args
+    assert "/tmp/assets" in args
+
+
+def test_push_charts_failure(tmp_path):
+    """push_charts returns error on sup failure."""
+    cfg = _make_chart_config(tmp_path)
+    with patch("scripts.chart.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="push failed")
+        result = push_charts(cfg)
+
+    assert result.success is False
+    assert "push failed" in result.error

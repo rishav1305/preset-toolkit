@@ -271,3 +271,41 @@ def pull_charts(
         charts_pulled=data.get("charts_pulled", 0),
         files=data.get("files", []),
     )
+
+
+def push_charts(
+    config: ToolkitConfig,
+    assets_folder: Optional[str] = None,
+    overwrite: bool = True,
+    force: bool = True,
+    continue_on_error: bool = False,
+    load_env: bool = False,
+) -> ChartPushResult:
+    """Push charts to Preset workspace. Uses sup chart push --json."""
+    args = ["chart", "push", "--json"]
+
+    if assets_folder is not None:
+        args.extend(["--assets-folder", assets_folder])
+    if not overwrite:
+        args.append("--no-overwrite")
+    if force:
+        args.append("--force")
+    if continue_on_error:
+        args.append("--continue-on-error")
+    if load_env:
+        args.append("--load-env")
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return ChartPushResult(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return ChartPushResult(success=False, error=f"JSON parse error: {e}")
+
+    return ChartPushResult(
+        success=True,
+        charts_pushed=data.get("charts_pushed", 0),
+        errors=data.get("errors", []),
+    )
