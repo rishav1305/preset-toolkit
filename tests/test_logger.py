@@ -1,6 +1,6 @@
 """Tests for structured logging module."""
 import logging
-from scripts.logger import get_logger, set_debug
+from scripts.logger import get_logger, set_debug, sanitize, SECRET_PATTERNS
 
 
 def test_get_logger_returns_named_logger():
@@ -31,3 +31,42 @@ def test_log_output_has_timestamp_and_module(capfd):
     assert "preset_toolkit.test.output" in captured.err
     assert "hello" in captured.err
     log.removeHandler(handler)
+
+
+# ── Sanitize tests ──
+
+
+def test_sanitize_redacts_tokens():
+    text = "token=abc123secret"
+    result = sanitize(text)
+    assert "abc123secret" not in result
+    assert "[REDACTED]" in result
+
+
+def test_sanitize_redacts_bearer():
+    text = "bearer=eyJhbGciOiJIUzI1Ni"
+    result = sanitize(text)
+    assert "eyJhbG" not in result
+    assert "[REDACTED]" in result
+
+
+def test_sanitize_redacts_api_key():
+    text = "api_key=supersecretkey123"
+    result = sanitize(text)
+    assert "supersecretkey123" not in result
+
+
+def test_sanitize_preserves_safe_text():
+    text = "This is a normal error message"
+    assert sanitize(text) == text
+
+
+def test_sanitize_truncates():
+    text = "x" * 1000
+    assert len(sanitize(text, max_length=200)) == 200
+
+
+def test_sanitize_case_insensitive():
+    text = "SECRET=mysecret"
+    result = sanitize(text)
+    assert "mysecret" not in result

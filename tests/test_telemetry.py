@@ -45,7 +45,7 @@ def test_telemetry_enabled_generates_anonymous_id(tmp_path):
     with patch("scripts.telemetry._create_posthog_client", return_value=MagicMock()):
         t = Telemetry(config_path)
         assert t.anonymous_id != ""
-        assert len(t.anonymous_id) == 36  # UUID format
+        assert len(t.anonymous_id) == 16  # SHA-256 truncated hex
 
 
 def test_telemetry_track_sends_event(tmp_path):

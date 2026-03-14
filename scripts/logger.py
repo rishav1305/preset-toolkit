@@ -1,10 +1,22 @@
-"""Structured logging for preset-toolkit."""
+"""Structured logging and secret sanitization for preset-toolkit."""
 import logging
+import re
 import sys
 
 _ROOT_NAME = "preset_toolkit"
 _root = logging.getLogger(_ROOT_NAME)
 _configured = False
+
+# Shared secret patterns — used by telemetry, sync, and any outbound data
+SECRET_PATTERNS = re.compile(
+    r'(token|secret|password|authorization|bearer|jwt|api[_-]?key)\s*[=:]\s*\S+',
+    re.IGNORECASE,
+)
+
+
+def sanitize(text: str, max_length: int = 500) -> str:
+    """Remove potential secrets from text before logging or sending externally."""
+    return SECRET_PATTERNS.sub("[REDACTED]", text)[:max_length]
 
 
 def _configure():

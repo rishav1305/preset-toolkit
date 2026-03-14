@@ -1,9 +1,11 @@
 """Anonymous opt-in telemetry for preset-toolkit."""
 import contextlib
+import hashlib
 import json
 import os
 import platform
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -11,7 +13,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from scripts.logger import get_logger
+from scripts.logger import get_logger, sanitize
 
 log = get_logger("telemetry")
 
@@ -106,7 +108,8 @@ class Telemetry:
 
         self.anonymous_id = telem_config.get("anonymous_id", "") or ""
         if not self.anonymous_id:
-            self.anonymous_id = str(uuid.uuid4())
+            raw_id = str(uuid.uuid4())
+            self.anonymous_id = hashlib.sha256(raw_id.encode()).hexdigest()[:16]
             self._save_anonymous_id(self.anonymous_id)
 
         self._client = _create_posthog_client()
@@ -120,12 +123,26 @@ class Telemetry:
             return {}
 
     def _save_anonymous_id(self, anon_id: str) -> None:
-        """Persist the anonymous ID back into config.yaml."""
+        """Persist the anonymous ID back into config.yaml using atomic write."""
         try:
-            text = self._config_path.read_text()
-            if 'anonymous_id: ""' in text:
-                text = text.replace('anonymous_id: ""', f'anonymous_id: "{anon_id}"')
-                self._config_path.write_text(text)
+            config = self._load_config()
+            if "telemetry" not in config:
+                config["telemetry"] = {}
+            config["telemetry"]["anonymous_id"] = anon_id
+
+            fd, tmp = tempfile.mkstemp(
+                dir=self._config_path.parent, suffix=".tmp"
+            )
+            try:
+                with os.fdopen(fd, "w") as f:
+                    yaml.safe_dump(config, f, default_flow_style=False)
+                os.replace(tmp, self._config_path)
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
         except Exception as e:
             log.debug("Could not persist anonymous_id: %s", e)
 
@@ -161,7 +178,7 @@ class Telemetry:
         self.track("error", {
             "command": command,
             "error_type": error_type,
-            "error_message": message[:200],
+            "error_message": sanitize(message, max_length=200),
         })
 
     @contextlib.contextmanager
