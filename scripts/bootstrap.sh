@@ -105,21 +105,28 @@ for pkg in PyYAML Pillow httpx; do
     fi
 done
 
-# preset-cli check
+# preset-cli check — verify both the package AND the sup binary work
 SUP_STATUS=$(echo "$DEP_RESULT" | $VENV_PY -c "import json,sys; d=json.load(sys.stdin); print(d.get('preset-cli','missing'))" 2>/dev/null || echo "missing")
-if [ "$SUP_STATUS" != "missing" ]; then
-    if [ -f ".venv/bin/sup" ]; then
-        ok "preset-cli v${SUP_STATUS} (.venv/bin/sup)"
+if [ "$SUP_STATUS" != "missing" ] && [ -f ".venv/bin/sup" ]; then
+    # Verify sup actually runs
+    if .venv/bin/sup version >/dev/null 2>&1; then
+        ok "preset-cli v${SUP_STATUS} (.venv/bin/sup) — verified"
     else
-        ok "preset-cli v${SUP_STATUS} (installed, sup binary via PATH)"
+        warn "preset-cli v${SUP_STATUS} installed but sup won't run — reinstalling..."
+        $VENV_PIP install -q --force-reinstall preset-cli 2>&1 | grep -v "notice" || true
+        if .venv/bin/sup version >/dev/null 2>&1; then
+            ok "preset-cli reinstalled and verified"
+        else
+            fail "preset-cli — sup binary broken after reinstall"
+        fi
     fi
 else
     warn "preset-cli not installed — trying reinstall..."
     $VENV_PIP install -q --force-reinstall preset-cli 2>&1 | grep -v "notice" || true
-    if [ -f ".venv/bin/sup" ]; then
-        ok "preset-cli installed on retry"
+    if [ -f ".venv/bin/sup" ] && .venv/bin/sup version >/dev/null 2>&1; then
+        ok "preset-cli installed and verified"
     else
-        fail "preset-cli — sup binary not found"
+        fail "preset-cli — sup binary not found after install"
     fi
 fi
 

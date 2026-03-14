@@ -12,7 +12,7 @@
         "repo": "rishav1305/preset-toolkit"
       },
       "description": "Dashboard management toolkit for Preset/Superset — sync, validate, push, screenshot, visual regression, ownership",
-      "version": "0.3.3"
+      "version": "0.3.4"
     }
   ]
 }

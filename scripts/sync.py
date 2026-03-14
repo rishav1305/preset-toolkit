@@ -51,10 +51,11 @@ def _find_sup() -> Optional[str]:
 
 
 def _ensure_sup() -> str:
-    """Ensure sup CLI is available, installing preset-cli if needed.
+    """Find the sup CLI binary and verify it works.
 
     Returns the path to the sup binary.
-    Raises SupNotFoundError if sup cannot be found or installed.
+    Raises SupNotFoundError if sup is not installed — does NOT auto-install.
+    Dependencies should be set up via /preset-toolkit:preset-setup.
     """
     global _sup_path
     if _sup_path:
@@ -71,21 +72,8 @@ def _ensure_sup() -> str:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
-    # Try installing preset-cli
-    from scripts.deps import ensure_sup_cli
-    if not ensure_sup_cli():
-        raise SupNotFoundError(
-            "sup CLI not found. Run /preset setup to install dependencies."
-        )
-
-    # Re-check after install
-    found = _find_sup()
-    if found:
-        _sup_path = found
-        return found
-
     raise SupNotFoundError(
-        "sup CLI not found after install. Run /preset setup to install dependencies."
+        "sup CLI not found. Run /preset-toolkit:preset-setup to install dependencies."
     )
 
 
