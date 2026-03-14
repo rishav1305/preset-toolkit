@@ -1,7 +1,7 @@
 {
   "name": "preset-toolkit",
   "description": "Dashboard management toolkit for Preset/Superset — sync, validate, push, screenshot, visual regression, ownership",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Rishav Chatterjee",
     "email": "rishav.chatterjee@weather.com"
