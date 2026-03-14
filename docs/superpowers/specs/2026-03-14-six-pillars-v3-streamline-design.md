@@ -40,12 +40,13 @@ Streamline the preset-toolkit Claude Code plugin to be fast, robust, secure, res
 
 ### 1c. Single router in `commands/preset.md`
 - Contains full routing table mapping user input to `preset-toolkit:preset-*` skills
+- `status` is handled inline in the router (not routed to a skill) — shows config summary directly
 - Includes menu display, natural language routing
 - Adds **"Preset Mode" context boundary**: once `/preset` is invoked, conversation focuses on Preset operations; guardrails keep context enriched with dashboard details
 
 ### 1d. Version single source of truth
 - `plugin.json` is the sole source of truth for version
-- No version duplication elsewhere
+- No version duplication elsewhere — replace hardcoded `_PLUGIN_VERSION` in `scripts/telemetry.py` with a read from `plugin.json`
 
 ---
 
@@ -63,7 +64,7 @@ Streamline the preset-toolkit Claude Code plugin to be fast, robust, secure, res
 ### 2c. Interactive auth prompt
 - If `PRESET_API_TOKEN` or `PRESET_API_SECRET` is not set (AUTH=UNSET), ask the user directly in chat
 - No `$()` subshell prompts — plain text question, user pastes value
-- Set in `.zshrc` / `.bashrc` for persistence
+- Store credentials in `.preset-toolkit/.secrets/keys.env` and instruct user to source it from their shell RC
 
 ### 2d. Attractive setup logging
 - Color-coded progress output:
@@ -83,6 +84,8 @@ Streamline the preset-toolkit Claude Code plugin to be fast, robust, secure, res
 - Migration: if `.last-push-fingerprint` is a plain string (v1), treat as stale and recompute
 - New function: `compute_fingerprint_map(assets_dir) -> dict[str, str]`
 - Diff reports: "3 files changed, 1 added, 0 removed" instead of binary "changed/unchanged"
+- `hooks/session-start.sh` must also be updated: fix filename to `.last-push-fingerprint` (currently uses `last_push_fingerprint` with underscores) and parse the v2 JSON format for display
+- Skill markdown files containing fingerprint-reading code snippets (preset-sync-pull, preset-sync-push, preset-validate) should be updated to handle the v2 JSON format
 
 ### 3b. Config discovery ambiguity warning
 - `scripts/config.py` walks up directories to find `.preset-toolkit/config.yaml`
@@ -91,10 +94,10 @@ Streamline the preset-toolkit Claude Code plugin to be fast, robust, secure, res
 - Prevents accidental operations on wrong project
 
 ### 3c. Explicit sup CLI errors
-- `_ensure_sup()` currently returns `False` silently
-- Change to raise `SupNotFoundError` with actionable message:
+- `_ensure_sup()` currently returns a falsy value; `_run_sup()` handles this by constructing a fake failed `CompletedProcess`
+- Change `_ensure_sup()` to raise `SupNotFoundError` with actionable message:
   `"sup CLI not found. Run /preset setup to install dependencies."`
-- Callers catch and display, no more silent fallthrough
+- Update `_run_sup()` and its callers to catch `SupNotFoundError` — no more silent fallthrough
 
 ---
 
@@ -142,12 +145,13 @@ Streamline the preset-toolkit Claude Code plugin to be fast, robust, secure, res
 
 ### 6a. HTTP proxy support
 - `scripts/http.py`: Honor `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` environment variables
-- httpx supports these natively — ensure we don't override with `proxies=None`
+- httpx respects these natively when no explicit `proxies` argument is passed — verify existing `httpx.request()` calls don't override
 - Zero config for environments where IT already sets these vars
 
 ### 6b. TLS/CA bundle support
 - `scripts/http.py`: Honor `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` env vars
-- Pass to httpx client: `verify=os.environ.get("SSL_CERT_FILE", True)`
+- Pass to httpx client: `verify=os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE") or True`
+- `REQUESTS_CA_BUNDLE` is a requests-library convention that httpx does NOT natively support — explicit fallback chain needed
 - Fixes TLS errors behind corporate MITM proxies
 
 ### 6c. Enterprise environment detection
@@ -173,12 +177,15 @@ Streamline the preset-toolkit Claude Code plugin to be fast, robust, secure, res
 | Modify | `commands/preset.md` | 1c, 1d |
 | Modify | `scripts/bootstrap.sh` | 2a, 2b, 2d, 6c |
 | Modify | `skills/preset-setup/SKILL.md` | 2c |
-| Modify | `scripts/fingerprint.py` | 3a |
+| Modify | `scripts/fingerprint.py` | 3a, 4b |
 | Modify | `scripts/config.py` | 3b |
 | Modify | `scripts/sync.py` | 3c, 4a |
 | Modify | `scripts/logger.py` | 4a |
-| Modify | `scripts/telemetry.py` | 4b, 4c, 5c |
-| Modify | `hooks/session-start.sh` | 5b |
+| Modify | `scripts/telemetry.py` | 1d, 4b, 4c, 5c |
+| Modify | `hooks/session-start.sh` | 3a, 5b |
+| Modify | `skills/preset-sync-pull/SKILL.md` | 3a |
+| Modify | `skills/preset-sync-push/SKILL.md` | 3a |
+| Modify | `skills/preset-validate/SKILL.md` | 3a |
 | Modify | `scripts/http.py` | 5a, 6a, 6b |
 | Modify | `.claude-plugin/plugin.json` | 1d |
 
