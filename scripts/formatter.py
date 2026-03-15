@@ -13,6 +13,7 @@ from scripts.dataset import (
     DatasetListResult, DatasetInfo, DatasetSQL, DatasetData,
     DatasetPullResult, DatasetPushResult,
 )
+from scripts.dashboard import DashboardListResult, DashboardInfo, DashboardPullResult
 from scripts.sql import SqlResult
 from scripts.sync import ChangeAction, DryRunResult, SyncResult
 
@@ -271,6 +272,51 @@ def _format_table_sql_result(result: SqlResult) -> str:
     return "\n".join(lines)
 
 
+def _format_table_dashboard_list(result: DashboardListResult) -> str:
+    """Render DashboardListResult as a table."""
+    lines = []
+    if result.dashboards:
+        lines.append(f"{'ID':<8} {'Name':<30} {'Status':<12} {'URL':<30} Modified")
+        lines.append("-" * 100)
+        for d in result.dashboards:
+            lines.append(f"{d.id:<8} {d.name:<30} {d.status:<12} {d.url:<30} {d.modified}")
+        lines.append("")
+        lines.append(f"{result.total} dashboard(s) found.")
+    else:
+        lines.append("No dashboards found.")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_dashboard_info(result: DashboardInfo) -> str:
+    """Render DashboardInfo as key-value pairs."""
+    lines = [
+        f"ID:      {result.id}",
+        f"Name:    {result.name}",
+        f"Status:  {result.status}",
+        f"URL:     {result.url}",
+        f"Slug:    {result.slug}",
+        f"Charts:  {len(result.charts)}",
+        f"CSS:     {len(result.css)} chars",
+    ]
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_dashboard_pull(result: DashboardPullResult) -> str:
+    """Render DashboardPullResult as a summary."""
+    lines = [f"Dashboards pulled: {result.dashboards_pulled}"]
+    if result.files:
+        lines.append("Files:")
+        for f in result.files:
+            lines.append(f"  - {f}")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
 def _coerce_enums(obj: Any) -> Any:
     """Recursively convert Enum instances to their plain string/value form.
 
@@ -347,6 +393,12 @@ def format_output(data: Any, fmt: str = "table") -> str:
             return _format_table_dataset_push(data)
         elif isinstance(data, SqlResult):
             return _format_table_sql_result(data)
+        elif isinstance(data, DashboardListResult):
+            return _format_table_dashboard_list(data)
+        elif isinstance(data, DashboardInfo):
+            return _format_table_dashboard_info(data)
+        elif isinstance(data, DashboardPullResult):
+            return _format_table_dashboard_pull(data)
         else:
             return str(dataclasses.asdict(data))
     elif fmt == "json":

@@ -12,6 +12,9 @@ from scripts.dataset import (
     DatasetSummary, DatasetListResult, DatasetInfo, DatasetSQL,
     DatasetData, DatasetPullResult, DatasetPushResult,
 )
+from scripts.dashboard import (
+    DashboardSummary, DashboardListResult, DashboardInfo, DashboardPullResult,
+)
 from scripts.formatter import format_output
 from scripts.sql import SqlResult
 from scripts.sync import AssetChange, ChangeAction, DryRunResult, SyncResult
@@ -422,3 +425,78 @@ def test_format_sql_result_yaml():
     assert parsed["columns"] == ["id", "amount"]
     assert parsed["row_count"] == 1
     assert len(parsed["rows"]) == 1
+
+
+# ── Dashboard table formats ────────────────────────────────────────
+
+
+def test_format_dashboard_list_table():
+    """DashboardListResult table shows ID, Name, Status, URL, Modified columns."""
+    result = DashboardListResult(
+        success=True,
+        dashboards=[
+            DashboardSummary(id=76, name="Sales Overview", status="published",
+                             url="https://preset.io/d/76", modified="2026-03-15T00:00:00Z"),
+            DashboardSummary(id=89, name="Marketing KPIs", status="draft",
+                             url="https://preset.io/d/89", modified="2026-03-14T00:00:00Z"),
+        ],
+        total=2,
+    )
+    output = format_output(result, fmt="table")
+    assert "76" in output
+    assert "Sales Overview" in output
+    assert "published" in output
+    assert "89" in output
+    assert "Marketing KPIs" in output
+    assert "draft" in output
+    assert "2 dashboard(s)" in output
+
+
+def test_format_dashboard_list_empty_table():
+    """DashboardListResult table shows 'No dashboards found.' when empty."""
+    result = DashboardListResult(success=True, dashboards=[], total=0)
+    output = format_output(result, fmt="table")
+    assert "No dashboards found." in output
+
+
+def test_format_dashboard_info_table():
+    """DashboardInfo table shows key-value metadata."""
+    result = DashboardInfo(
+        success=True, id=76, name="Sales Overview", status="published",
+        url="https://preset.io/d/76", slug="sales-overview",
+        charts=[{"id": 1}, {"id": 2}, {"id": 3}],
+        css=".dashboard { color: red; }",
+    )
+    output = format_output(result, fmt="table")
+    assert "76" in output
+    assert "Sales Overview" in output
+    assert "published" in output
+    assert "sales-overview" in output
+    assert "Charts:  3" in output
+    assert "26 chars" in output
+
+
+def test_format_dashboard_pull_table():
+    """DashboardPullResult table shows summary and files."""
+    result = DashboardPullResult(
+        success=True, dashboards_pulled=2,
+        files=["dashboards/sales.yaml", "dashboards/marketing.yaml"],
+    )
+    output = format_output(result, fmt="table")
+    assert "Dashboards pulled: 2" in output
+    assert "dashboards/sales.yaml" in output
+    assert "dashboards/marketing.yaml" in output
+
+
+def test_format_dashboard_list_json():
+    """DashboardListResult JSON is valid and parseable."""
+    result = DashboardListResult(
+        success=True,
+        dashboards=[DashboardSummary(id=76, name="Sales Overview", status="published")],
+        total=1,
+    )
+    output = format_output(result, fmt="json")
+    parsed = json.loads(output)
+    assert parsed["success"] is True
+    assert len(parsed["dashboards"]) == 1
+    assert parsed["dashboards"][0]["name"] == "Sales Overview"
