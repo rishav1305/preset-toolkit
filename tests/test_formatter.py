@@ -16,6 +16,7 @@ from scripts.dashboard import (
     DashboardSummary, DashboardListResult, DashboardInfo, DashboardPullResult,
 )
 from scripts.formatter import format_output
+from scripts.jinja_check import JinjaExpression, JinjaFinding, JinjaScanResult
 from scripts.sql import SqlResult
 from scripts.sync import AssetChange, ChangeAction, DryRunResult, SyncResult
 
@@ -500,3 +501,85 @@ def test_format_dashboard_list_json():
     assert parsed["success"] is True
     assert len(parsed["dashboards"]) == 1
     assert parsed["dashboards"][0]["name"] == "Sales Overview"
+
+
+# ── JinjaScanResult formats ────────────────────────────────────────
+
+
+def test_format_jinja_scan_table():
+    """JinjaScanResult table shows summary and error findings."""
+    result = JinjaScanResult(
+        success=True,
+        files_scanned=5,
+        files_with_jinja=2,
+        total_expressions=4,
+        findings=[
+            JinjaFinding(
+                file_path="charts/revenue.yaml",
+                field_name="sql",
+                expressions=[
+                    JinjaExpression(expression="{{ metric }}", expr_type="variable"),
+                ],
+                errors=["Unbalanced variable braces: 2 opening '{{' vs 1 closing '}}'"],
+                valid=False,
+            ),
+        ],
+    )
+    output = format_output(result, fmt="table")
+    assert "Files scanned:      5" in output
+    assert "Files with Jinja:   2" in output
+    assert "Total expressions:  4" in output
+    assert "charts/revenue.yaml" in output
+    assert "Unbalanced variable braces" in output
+
+
+def test_format_jinja_scan_all_valid_table():
+    """JinjaScanResult table shows 'All Jinja expressions are valid.' when no errors."""
+    result = JinjaScanResult(
+        success=True,
+        files_scanned=3,
+        files_with_jinja=1,
+        total_expressions=2,
+        findings=[
+            JinjaFinding(
+                file_path="charts/dau.yaml",
+                field_name="sql",
+                expressions=[
+                    JinjaExpression(expression="{{ ds }}", expr_type="variable"),
+                ],
+                errors=[],
+                valid=True,
+            ),
+        ],
+    )
+    output = format_output(result, fmt="table")
+    assert "All Jinja expressions are valid." in output
+
+
+def test_format_jinja_scan_json():
+    """JinjaScanResult JSON is valid and preserves structure."""
+    result = JinjaScanResult(
+        success=True,
+        files_scanned=2,
+        files_with_jinja=1,
+        total_expressions=1,
+        findings=[
+            JinjaFinding(
+                file_path="charts/dau.yaml",
+                field_name="sql",
+                expressions=[
+                    JinjaExpression(expression="{{ ds }}", expr_type="variable"),
+                ],
+                errors=[],
+                valid=True,
+            ),
+        ],
+    )
+    output = format_output(result, fmt="json")
+    parsed = json.loads(output)
+    assert parsed["success"] is True
+    assert parsed["files_scanned"] == 2
+    assert parsed["files_with_jinja"] == 1
+    assert parsed["total_expressions"] == 1
+    assert len(parsed["findings"]) == 1
+    assert parsed["findings"][0]["file_path"] == "charts/dau.yaml"
