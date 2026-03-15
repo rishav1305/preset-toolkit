@@ -38,6 +38,7 @@ Preset Toolkit v0.9.0 — Dashboard Management
   9.  chart         /preset-toolkit:preset-chart
   10. dataset       /preset-toolkit:preset-dataset
   11. sql           /preset-toolkit:preset-sql
+  12. dashboard     /preset-toolkit:preset-dashboard
 
 Type a number, name, or describe what you want.
 ```
@@ -65,6 +66,7 @@ Parse the user's argument (if provided) and route to the matching skill:
 | `chart`, `charts`, `list charts`, `chart info`, `chart sql`, `chart data` | `preset-toolkit:preset-chart` |
 | `dataset`, `datasets`, `list datasets`, `dataset info`, `dataset sql`, `dataset data` | `preset-toolkit:preset-dataset` |
 | `sql`, `query`, `run sql`, `execute sql`, `run query` | `preset-toolkit:preset-sql` |
+| `dashboard`, `dashboards`, `list dashboards`, `dashboard info` | `preset-toolkit:preset-dashboard` |
 
 For `status`, show a quick summary without invoking a sub-skill:
 
@@ -99,6 +101,10 @@ If the user provides a free-form description instead of a command name, map thei
 - "Execute SELECT * FROM orders" -> `preset-toolkit:preset-sql`
 - "Query the database" -> `preset-toolkit:preset-sql`
 - "How many active users?" -> `preset-toolkit:preset-sql`
+- "List all dashboards" -> `preset-toolkit:preset-dashboard`
+- "Show dashboard 76" -> `preset-toolkit:preset-dashboard`
+- "Pull dashboard 76" -> `preset-toolkit:preset-dashboard`
+- "Find sales dashboards" -> `preset-toolkit:preset-dashboard`
 
 If ambiguous, ask: "Did you mean X or Y?" -- but only between two options, never more.
 
