@@ -79,6 +79,13 @@ class DashboardPullResult:
 
 def _parse_dashboard_summary(item: dict) -> DashboardSummary:
     """Parse a single dashboard dict from sup JSON output."""
+    return DashboardSummary(
+        id=item.get("id", 0),
+        name=item.get("dashboard_title", ""),
+        status=item.get("status", ""),
+        url=item.get("url", ""),
+        modified=item.get("changed_on_utc", ""),
+    )
 
 
 def list_dashboards(
@@ -94,7 +101,11 @@ def list_dashboards(
 
 
 def get_dashboard_info(config: ToolkitConfig, dashboard_id: int) -> DashboardInfo:
-    """Get detailed metadata for a dashboard. Uses sup dashboard info <id> --json."""
+    """Get detailed metadata for a dashboard. Uses sup dashboard info <id> --json.
+
+    Builds args as: ["dashboard", "info", str(dashboard_id), "--json"]
+    Includes isinstance(data, dict) guard on parsed JSON.
+    """
 
 
 def pull_dashboards(
@@ -108,7 +119,7 @@ def pull_dashboards(
     overwrite: bool = True,
     assets_folder: Optional[str] = None,
 ) -> DashboardPullResult:
-    """Pull dashboard definitions to local filesystem. Uses sup dashboard pull.
+    """Pull dashboard definitions to local filesystem. Uses sup dashboard pull --json.
 
     dashboard_id and dashboard_ids are mutually exclusive. Provide one or neither:
     - dashboard_id: pull a single dashboard by ID (maps to --id <id>)
@@ -134,8 +145,8 @@ def pull_dashboards(
 | `dashboard_id` | `--id <id>` | pull |
 | `dashboard_ids` | `--ids "1,2,3"` | pull |
 | `skip_dependencies` | `--skip-dependencies` | pull |
-| `overwrite` | `--overwrite` (True) / omitted (False) | pull |
-| `assets_folder` | positional arg | pull |
+| `overwrite` | omitted (True, default) / `--no-overwrite` (False) | pull |
+| `assets_folder` | `--assets-folder <path>` | pull |
 
 Note: `pull_dashboards` uses `--id` and `--ids` (not `--dashboard-id`/`--dashboard-ids` like the dataset module). This matches the actual `sup dashboard pull` CLI flags.
 
@@ -148,7 +159,9 @@ Same as chart/dataset operations. All dashboard commands support `--json` output
 - `DashboardInfo`: Same as summary plus `slug`, `charts` (list of chart dicts), `css`, and the full raw dict
 - `DashboardPullResult`: `dashboards_pulled` (count), `files` (list of paths)
 
-**Error handling:** If `run_sup()` returns non-zero, set `success=False` and populate `error` from stderr. If JSON parsing fails, set `success=False` with a parse error message.
+**Error handling:** If `run_sup()` returns non-zero, set `success=False` and populate `error` from stderr. If JSON parsing fails, set `success=False` with a parse error message. All functions include `isinstance` type guards on parsed JSON (`isinstance(data, list)` for list, `isinstance(data, dict)` for info/pull) before accessing fields.
+
+**Note:** `sup dashboard list` and `sup dashboard pull` do not support `--order`, `--desc`, or `--modified-after` flags. These are omitted intentionally (unlike chart/dataset which support them).
 
 ### 4. Formatter Extension
 
