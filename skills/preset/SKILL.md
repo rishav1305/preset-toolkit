@@ -37,6 +37,7 @@ Preset Toolkit v0.8.0 — Dashboard Management
   8.  help          /preset-toolkit:preset-troubleshoot
   9.  chart         /preset-toolkit:preset-chart
   10. dataset       /preset-toolkit:preset-dataset
+  11. sql           /preset-toolkit:preset-sql
 
 Type a number, name, or describe what you want.
 ```
@@ -63,6 +64,7 @@ Parse the user's argument (if provided) and route to the matching skill:
 | `review`, `code review`, `checklist` | `preset-toolkit:preset-code-review` |
 | `chart`, `charts`, `list charts`, `chart info`, `chart sql`, `chart data` | `preset-toolkit:preset-chart` |
 | `dataset`, `datasets`, `list datasets`, `dataset info`, `dataset sql`, `dataset data` | `preset-toolkit:preset-dataset` |
+| `sql`, `query`, `run sql`, `execute sql`, `run query` | `preset-toolkit:preset-sql` |
 
 For `status`, show a quick summary without invoking a sub-skill:
 
@@ -93,6 +95,10 @@ If the user provides a free-form description instead of a command name, map thei
 - "What SQL does dataset 42 use?" -> `preset-toolkit:preset-dataset`
 - "Get data from dataset 42" -> `preset-toolkit:preset-dataset`
 - "Pull dataset 42" -> `preset-toolkit:preset-dataset`
+- "Run this SQL query" -> `preset-toolkit:preset-sql`
+- "Execute SELECT * FROM orders" -> `preset-toolkit:preset-sql`
+- "Query the database" -> `preset-toolkit:preset-sql`
+- "How many active users?" -> `preset-toolkit:preset-sql`
 
 If ambiguous, ask: "Did you mean X or Y?" -- but only between two options, never more.
 
