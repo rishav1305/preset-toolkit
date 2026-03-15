@@ -13,6 +13,7 @@ from scripts.dataset import (
     DatasetListResult, DatasetInfo, DatasetSQL, DatasetData,
     DatasetPullResult, DatasetPushResult,
 )
+from scripts.sql import SqlResult
 from scripts.sync import ChangeAction, DryRunResult, SyncResult
 
 # ANSI color codes
@@ -251,6 +252,25 @@ def _format_table_dataset_push(result: DatasetPushResult) -> str:
     return "\n".join(lines)
 
 
+def _format_table_sql_result(result: SqlResult) -> str:
+    """Render SqlResult as a columnar table."""
+    if result.error:
+        return f"ERROR: {result.error}"
+    lines = []
+    if result.columns:
+        header = " | ".join(f"{col:<15}" for col in result.columns)
+        lines.append(header)
+        lines.append("-" * len(header))
+        for row in result.rows:
+            line = " | ".join(f"{str(row.get(col, '')):<15}" for col in result.columns)
+            lines.append(line)
+        lines.append("")
+        lines.append(f"{result.row_count} row(s) returned.")
+    else:
+        lines.append("No rows returned.")
+    return "\n".join(lines)
+
+
 def _coerce_enums(obj: Any) -> Any:
     """Recursively convert Enum instances to their plain string/value form.
 
@@ -325,6 +345,8 @@ def format_output(data: Any, fmt: str = "table") -> str:
             return _format_table_dataset_pull(data)
         elif isinstance(data, DatasetPushResult):
             return _format_table_dataset_push(data)
+        elif isinstance(data, SqlResult):
+            return _format_table_sql_result(data)
         else:
             return str(dataclasses.asdict(data))
     elif fmt == "json":

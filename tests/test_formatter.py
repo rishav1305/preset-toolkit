@@ -13,6 +13,7 @@ from scripts.dataset import (
     DatasetData, DatasetPullResult, DatasetPushResult,
 )
 from scripts.formatter import format_output
+from scripts.sql import SqlResult
 from scripts.sync import AssetChange, ChangeAction, DryRunResult, SyncResult
 
 
@@ -355,3 +356,69 @@ def test_format_dataset_info_yaml():
     parsed = yaml.safe_load(output)
     assert parsed["id"] == 42
     assert parsed["name"] == "Main_Dataset"
+
+
+# ── SqlResult formats ──────────────────────────────────────────────
+
+
+def test_format_sql_result_table():
+    """SqlResult table shows columnar data with row count."""
+    result = SqlResult(
+        success=True,
+        columns=["id", "name"],
+        rows=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+        row_count=2,
+    )
+    output = format_output(result, fmt="table")
+    assert "id" in output
+    assert "name" in output
+    assert "Alice" in output
+    assert "Bob" in output
+    assert "2 row(s)" in output
+
+
+def test_format_sql_result_empty_table():
+    """SqlResult table shows 'No rows returned.' when empty."""
+    result = SqlResult(success=True, columns=[], rows=[], row_count=0)
+    output = format_output(result, fmt="table")
+    assert "No rows returned." in output
+
+
+def test_format_sql_result_error():
+    """SqlResult table shows ERROR when success is False."""
+    result = SqlResult(success=False, error="Permission denied for table orders")
+    output = format_output(result, fmt="table")
+    assert "ERROR" in output
+    assert "Permission denied" in output
+
+
+def test_format_sql_result_json():
+    """SqlResult JSON is valid and preserves structure."""
+    result = SqlResult(
+        success=True,
+        columns=["id", "amount"],
+        rows=[{"id": 1, "amount": 100}],
+        row_count=1,
+    )
+    output = format_output(result, fmt="json")
+    parsed = json.loads(output)
+    assert parsed["success"] is True
+    assert parsed["columns"] == ["id", "amount"]
+    assert parsed["row_count"] == 1
+    assert len(parsed["rows"]) == 1
+
+
+def test_format_sql_result_yaml():
+    """SqlResult YAML is valid and preserves structure."""
+    result = SqlResult(
+        success=True,
+        columns=["id", "amount"],
+        rows=[{"id": 1, "amount": 250}],
+        row_count=1,
+    )
+    output = format_output(result, fmt="yaml")
+    parsed = yaml.safe_load(output)
+    assert parsed["success"] is True
+    assert parsed["columns"] == ["id", "amount"]
+    assert parsed["row_count"] == 1
+    assert len(parsed["rows"]) == 1
