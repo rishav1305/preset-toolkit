@@ -18,6 +18,7 @@ from scripts.dataset import (
     get_dataset_sql,
     get_dataset_data,
     pull_datasets,
+    push_datasets,
 )
 from scripts.config import ToolkitConfig
 
@@ -369,3 +370,43 @@ def test_pull_datasets_failure(tmp_path):
 
     assert result.success is False
     assert "connection error" in result.error
+
+
+# ── push_datasets ─────────────────────────────────────────────────
+
+def test_push_datasets_success(tmp_path):
+    """push_datasets parses push result."""
+    cfg = _make_dataset_config(tmp_path)
+    sup_json = json_mod.dumps({"datasets_pushed": 3, "errors": []})
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = push_datasets(cfg)
+
+    assert result.success is True
+    assert result.datasets_pushed == 3
+    assert result.errors == []
+
+
+def test_push_datasets_with_flags(tmp_path):
+    """push_datasets passes flag kwargs correctly."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout='{"datasets_pushed":0,"errors":[]}', stderr="")
+        push_datasets(cfg, overwrite=False, force=False, continue_on_error=True, load_env=True)
+
+    args = mock_sup.call_args[0][0]
+    assert "--no-overwrite" in args
+    assert "--continue-on-error" in args
+    assert "--load-env" in args
+    assert "--force" not in args
+
+
+def test_push_datasets_failure(tmp_path):
+    """push_datasets returns error on sup failure."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="push failed")
+        result = push_datasets(cfg)
+
+    assert result.success is False
+    assert "push failed" in result.error

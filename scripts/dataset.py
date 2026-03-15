@@ -278,3 +278,44 @@ def pull_datasets(
         datasets_pulled=data.get("datasets_pulled", 0),
         files=data.get("files", []),
     )
+
+
+def push_datasets(
+    config: ToolkitConfig,
+    assets_folder: Optional[str] = None,
+    overwrite: bool = True,
+    force: bool = True,
+    continue_on_error: bool = False,
+    load_env: bool = False,
+) -> DatasetPushResult:
+    """Push dataset definitions to workspace. Uses sup dataset push --json."""
+    args = ["dataset", "push", "--json"]
+
+    if assets_folder is not None:
+        args.extend(["--assets-folder", assets_folder])
+    if not overwrite:
+        args.append("--no-overwrite")
+    if force:
+        args.append("--force")
+    if continue_on_error:
+        args.append("--continue-on-error")
+    if load_env:
+        args.append("--load-env")
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return DatasetPushResult(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return DatasetPushResult(success=False, error=f"JSON parse error: {e}")
+
+    if not isinstance(data, dict):
+        return DatasetPushResult(success=True)
+
+    return DatasetPushResult(
+        success=True,
+        datasets_pushed=data.get("datasets_pushed", 0),
+        errors=data.get("errors", []),
+    )
