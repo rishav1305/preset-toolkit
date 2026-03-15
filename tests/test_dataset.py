@@ -15,6 +15,7 @@ from scripts.dataset import (
     DatasetPushResult,
     list_datasets,
     get_dataset_info,
+    get_dataset_sql,
 )
 from scripts.config import ToolkitConfig
 
@@ -232,3 +233,29 @@ def test_get_dataset_info_failure(tmp_path):
 
     assert result.success is False
     assert "not found" in result.error
+
+
+# ── get_dataset_sql ───────────────────────────────────────────────
+
+def test_get_dataset_sql_success(tmp_path):
+    """get_dataset_sql extracts SQL from result field."""
+    cfg = _make_dataset_config(tmp_path)
+    sup_json = json_mod.dumps({"result": "SELECT * FROM orders WHERE date > '2026-01-01'"})
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = get_dataset_sql(cfg, dataset_id=42)
+
+    assert result.success is True
+    assert "SELECT * FROM orders" in result.sql
+    assert "42" in mock_sup.call_args[0][0]
+
+
+def test_get_dataset_sql_failure(tmp_path):
+    """get_dataset_sql returns error on sup failure."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="dataset not found")
+        result = get_dataset_sql(cfg, dataset_id=9999)
+
+    assert result.success is False
+    assert "dataset not found" in result.error

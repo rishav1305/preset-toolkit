@@ -168,3 +168,23 @@ def get_dataset_info(
         metrics=data.get("metrics", []),
         raw=data,
     )
+
+
+def get_dataset_sql(
+    config: ToolkitConfig,
+    dataset_id: int,
+) -> DatasetSQL:
+    """Get the SQL definition for a dataset. Uses sup dataset sql --json."""
+    args = ["dataset", "sql", str(dataset_id), "--json"]
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return DatasetSQL(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return DatasetSQL(success=False, error=f"JSON parse error: {e}")
+
+    sql = data.get("result", "") if isinstance(data, dict) else ""
+    return DatasetSQL(success=True, sql=sql)
