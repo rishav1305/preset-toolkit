@@ -14,6 +14,7 @@ from scripts.dataset import (
     DatasetPullResult, DatasetPushResult,
 )
 from scripts.dashboard import DashboardListResult, DashboardInfo, DashboardPullResult
+from scripts.jinja_check import JinjaScanResult
 from scripts.sql import SqlResult
 from scripts.sync import ChangeAction, DryRunResult, SyncResult
 
@@ -272,6 +273,36 @@ def _format_table_sql_result(result: SqlResult) -> str:
     return "\n".join(lines)
 
 
+def _format_table_jinja_scan(result: JinjaScanResult) -> str:
+    """Render JinjaScanResult as a human-readable summary."""
+    if result.error:
+        return f"ERROR: {result.error}"
+    lines = []
+    lines.append(f"Files scanned:      {result.files_scanned}")
+    lines.append(f"Files with Jinja:   {result.files_with_jinja}")
+    lines.append(f"Total expressions:  {result.total_expressions}")
+    lines.append("")
+
+    # Collect findings that have errors
+    error_findings = [f for f in result.findings if f.errors]
+    if error_findings:
+        lines.append("Files with errors:")
+        lines.append("-" * 50)
+        for finding in error_findings:
+            lines.append(f"  {finding.file_path}")
+            for err in finding.errors:
+                lines.append(f"    - {err}")
+    else:
+        lines.append("All Jinja expressions are valid.")
+
+    if result.errors:
+        lines.append("")
+        for e in result.errors:
+            lines.append(f"WARNING: {e}")
+
+    return "\n".join(lines)
+
+
 def _format_table_dashboard_list(result: DashboardListResult) -> str:
     """Render DashboardListResult as a table."""
     lines = []
@@ -393,6 +424,8 @@ def format_output(data: Any, fmt: str = "table") -> str:
             return _format_table_dataset_push(data)
         elif isinstance(data, SqlResult):
             return _format_table_sql_result(data)
+        elif isinstance(data, JinjaScanResult):
+            return _format_table_jinja_scan(data)
         elif isinstance(data, DashboardListResult):
             return _format_table_dashboard_list(data)
         elif isinstance(data, DashboardInfo):
