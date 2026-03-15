@@ -39,6 +39,7 @@ Preset Toolkit v0.10.0 — Dashboard Management
   10. dataset       /preset-toolkit:preset-dataset
   11. sql           /preset-toolkit:preset-sql
   12. dashboard     /preset-toolkit:preset-dashboard
+  13. jinja         /preset-toolkit:preset-jinja
 
 Type a number, name, or describe what you want.
 ```
@@ -67,6 +68,7 @@ Parse the user's argument (if provided) and route to the matching skill:
 | `dataset`, `datasets`, `list datasets`, `dataset info`, `dataset sql`, `dataset data` | `preset-toolkit:preset-dataset` |
 | `sql`, `query`, `run sql`, `execute sql`, `run query` | `preset-toolkit:preset-sql` |
 | `dashboard`, `dashboards`, `list dashboards`, `dashboard info` | `preset-toolkit:preset-dashboard` |
+| `jinja`, `jinja check`, `validate jinja`, `templates` | `preset-toolkit:preset-jinja` |
 
 For `status`, show a quick summary without invoking a sub-skill:
 
@@ -105,6 +107,9 @@ If the user provides a free-form description instead of a command name, map thei
 - "Show dashboard 76" -> `preset-toolkit:preset-dashboard`
 - "Pull dashboard 76" -> `preset-toolkit:preset-dashboard`
 - "Find sales dashboards" -> `preset-toolkit:preset-dashboard`
+- "Check jinja syntax" -> `preset-toolkit:preset-jinja`
+- "Any broken templates?" -> `preset-toolkit:preset-jinja`
+- "Validate jinja expressions" -> `preset-toolkit:preset-jinja`
 
 If ambiguous, ask: "Did you mean X or Y?" -- but only between two options, never more.
 
