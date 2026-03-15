@@ -1,8 +1,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet?style=for-the-badge" alt="Claude Code Plugin" />
   <img src="https://img.shields.io/badge/Preset-Dashboard_Toolkit-orange?style=for-the-badge" alt="Preset Dashboard Toolkit" />
-  <img src="https://img.shields.io/badge/version-0.10.0-green?style=for-the-badge" alt="Version 0.10.0" />
-  <img src="https://img.shields.io/badge/tests-238_passing-brightgreen?style=for-the-badge" alt="238 Tests Passing" />
+  <img src="https://img.shields.io/badge/version-0.11.0-green?style=for-the-badge" alt="Version 0.11.0" />
+  <img src="https://img.shields.io/badge/tests-297_passing-brightgreen?style=for-the-badge" alt="297 Tests Passing" />
   <img src="https://img.shields.io/badge/license-BUSL_1.1-blue?style=for-the-badge" alt="License" />
 </p>
 
@@ -109,7 +109,7 @@ Setup handles everything: virtual environment, dependencies (`superset-sup`, Pla
 
 ---
 
-## Skills (20)
+## Skills (21)
 
 | # | Skill | Invoke with | Purpose |
 |---|-------|-------------|---------|
@@ -133,6 +133,7 @@ Setup handles everything: virtual environment, dependencies (`superset-sup`, Pla
 | 18 | Dataset Ops | `/preset-toolkit:preset-dataset` | List, inspect, query, pull, push datasets |
 | 19 | SQL Execution | `/preset-toolkit:preset-sql` | Execute SQL queries against Preset databases |
 | 20 | Dashboard Ops | `/preset-toolkit:preset-dashboard` | List, inspect, and pull dashboards |
+| 21 | Jinja Validation | `/preset-toolkit:preset-jinja` | Validate Jinja2 syntax in SQL fields |
 
 Or just describe what you want:
 
@@ -287,7 +288,7 @@ Also requires `telemetry.enabled: true` in config. No data is ever sent without 
 preset-toolkit/
 ├── .claude-plugin/           Plugin metadata (plugin.json, marketplace.json)
 ├── hooks/                    Session auto-detection
-├── skills/                   20 skills (each with SKILL.md)
+├── skills/                   21 skills (each with SKILL.md)
 │   ├── preset/               Router — single entry point
 │   ├── preset-setup/         First-time wizard
 │   ├── preset-sync-pull/     Pull + dedup + fingerprint
@@ -299,6 +300,7 @@ preset-toolkit/
 │   ├── preset-dataset/       Individual dataset operations
 │   ├── preset-sql/           SQL query execution
 │   ├── preset-dashboard/     Individual dashboard operations
+│   ├── preset-jinja/         Jinja2 syntax validation
 │   ├── preset-code-review/   Change review checklist
 │   ├── preset-ownership/     Section ownership warnings
 │   ├── preset-troubleshoot/  Diagnostic decision tree
@@ -310,12 +312,13 @@ preset-toolkit/
 │   └── preset-debugging/     Systematic debugging
 ├── agents/                   Visual diff + conflict check agents
 ├── references/               Preset knowledge base (7 docs)
-├── scripts/                  Python automation (17 modules)
+├── scripts/                  Python automation (18 modules)
 │   ├── sync.py               Pull/push orchestrator (uses sup CLI)
 │   ├── chart.py              Chart operations (list/info/sql/data/pull/push)
 │   ├── dataset.py            Dataset operations (list/info/sql/data/pull/push)
 │   ├── sql.py                SQL execution (execute_sql + database ID resolution)
 │   ├── dashboard.py          Dashboard operations (list/info/pull)
+│   ├── jinja_check.py        Jinja2 syntax validation + expression extraction
 │   ├── push_dashboard.py     REST API push (CSS/position)
 │   ├── screenshot.py         Playwright browser capture + auth fallback
 │   ├── browser_cookies.py    Cookie extraction from Chrome/Firefox/Edge/Arc
@@ -330,7 +333,7 @@ preset-toolkit/
 │   ├── logger.py             Structured logging + secret sanitization
 │   └── bootstrap.sh          Venv + dependency installer
 ├── templates/                Project scaffolding files
-└── tests/                    238 tests (unit + integration)
+└── tests/                    297 tests (unit + integration)
 ```
 
 ### Dependencies
@@ -357,7 +360,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-All 238 tests pass in ~5 seconds.
+All 297 tests pass in ~8 seconds.
 
 ### Design Principles
 
