@@ -218,3 +218,63 @@ def get_dataset_data(
         rows=data.get("data", []),
         row_count=data.get("rowcount", 0),
     )
+
+
+def pull_datasets(
+    config: ToolkitConfig,
+    dataset_id: Optional[int] = None,
+    dataset_ids: Optional[List[int]] = None,
+    name: Optional[str] = None,
+    mine: bool = False,
+    modified_after: Optional[str] = None,
+    limit: Optional[int] = None,
+    skip_dependencies: bool = False,
+    overwrite: bool = True,
+    assets_folder: Optional[str] = None,
+) -> DatasetPullResult:
+    """Pull dataset definitions to local filesystem. Uses sup dataset pull.
+
+    dataset_id and dataset_ids are mutually exclusive.
+    Raises ValueError if both are provided.
+    """
+    if dataset_id is not None and dataset_ids is not None:
+        raise ValueError("dataset_id and dataset_ids are mutually exclusive")
+
+    args = ["dataset", "pull", "--json"]
+
+    if dataset_id is not None:
+        args.extend(["--dataset-id", str(dataset_id)])
+    if dataset_ids is not None:
+        args.extend(["--dataset-ids", ",".join(str(did) for did in dataset_ids)])
+    if name is not None:
+        args.extend(["--name", name])
+    if mine:
+        args.append("--mine")
+    if modified_after is not None:
+        args.extend(["--modified-after", modified_after])
+    if limit is not None:
+        args.extend(["--limit", str(limit)])
+    if skip_dependencies:
+        args.append("--skip-dependencies")
+    if not overwrite:
+        args.append("--no-overwrite")
+    if assets_folder is not None:
+        args.extend(["--assets-folder", assets_folder])
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return DatasetPullResult(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return DatasetPullResult(success=False, error=f"JSON parse error: {e}")
+
+    if not isinstance(data, dict):
+        return DatasetPullResult(success=True)
+
+    return DatasetPullResult(
+        success=True,
+        datasets_pulled=data.get("datasets_pulled", 0),
+        files=data.get("files", []),
+    )

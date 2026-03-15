@@ -17,6 +17,7 @@ from scripts.dataset import (
     get_dataset_info,
     get_dataset_sql,
     get_dataset_data,
+    pull_datasets,
 )
 from scripts.config import ToolkitConfig
 
@@ -307,3 +308,64 @@ def test_get_dataset_data_failure(tmp_path):
 
     assert result.success is False
     assert "timeout" in result.error
+
+
+# ── pull_datasets ─────────────────────────────────────────────────
+
+def test_pull_datasets_single(tmp_path):
+    """pull_datasets with dataset_id pulls a single dataset."""
+    cfg = _make_dataset_config(tmp_path)
+    sup_json = json_mod.dumps({"datasets_pulled": 1, "files": ["datasets/Main_Dataset.yaml"]})
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = pull_datasets(cfg, dataset_id=42)
+
+    assert result.success is True
+    assert result.datasets_pulled == 1
+    args = mock_sup.call_args[0][0]
+    assert "--dataset-id" in args
+    assert "42" in args
+
+
+def test_pull_datasets_multiple(tmp_path):
+    """pull_datasets with dataset_ids pulls multiple datasets."""
+    cfg = _make_dataset_config(tmp_path)
+    sup_json = json_mod.dumps({"datasets_pulled": 2, "files": ["a.yaml", "b.yaml"]})
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = pull_datasets(cfg, dataset_ids=[42, 43])
+
+    args = mock_sup.call_args[0][0]
+    assert "--dataset-ids" in args
+    assert "42,43" in args
+
+
+def test_pull_datasets_mutual_exclusion(tmp_path):
+    """pull_datasets raises ValueError if both dataset_id and dataset_ids given."""
+    cfg = _make_dataset_config(tmp_path)
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        pull_datasets(cfg, dataset_id=42, dataset_ids=[42, 43])
+
+
+def test_pull_datasets_with_filters(tmp_path):
+    """pull_datasets passes filter kwargs as CLI flags."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout='{"datasets_pulled":0,"files":[]}', stderr="")
+        pull_datasets(cfg, mine=True, skip_dependencies=True, overwrite=False)
+
+    args = mock_sup.call_args[0][0]
+    assert "--mine" in args
+    assert "--skip-dependencies" in args
+    assert "--no-overwrite" in args
+
+
+def test_pull_datasets_failure(tmp_path):
+    """pull_datasets returns error on sup failure."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="connection error")
+        result = pull_datasets(cfg, dataset_id=42)
+
+    assert result.success is False
+    assert "connection error" in result.error
