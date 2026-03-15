@@ -16,6 +16,7 @@ from scripts.dataset import (
     list_datasets,
     get_dataset_info,
     get_dataset_sql,
+    get_dataset_data,
 )
 from scripts.config import ToolkitConfig
 
@@ -259,3 +260,50 @@ def test_get_dataset_sql_failure(tmp_path):
 
     assert result.success is False
     assert "dataset not found" in result.error
+
+
+# ── get_dataset_data ──────────────────────────────────────────────
+
+def test_get_dataset_data_success(tmp_path):
+    """get_dataset_data parses columns, rows, and row_count."""
+    cfg = _make_dataset_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "columns": ["id", "order_date", "amount"],
+        "data": [
+            {"id": 1, "order_date": "2026-01", "amount": 100},
+            {"id": 2, "order_date": "2026-02", "amount": 200},
+        ],
+        "rowcount": 2,
+    })
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = get_dataset_data(cfg, dataset_id=42)
+
+    assert result.success is True
+    assert result.columns == ["id", "order_date", "amount"]
+    assert len(result.rows) == 2
+    assert result.rows[0]["amount"] == 100
+    assert result.row_count == 2
+
+
+def test_get_dataset_data_with_limit(tmp_path):
+    """get_dataset_data passes --limit flag when specified."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout='{"columns":[],"data":[],"rowcount":0}', stderr="")
+        get_dataset_data(cfg, dataset_id=42, limit=5)
+
+    args = mock_sup.call_args[0][0]
+    assert "--limit" in args
+    assert "5" in args
+
+
+def test_get_dataset_data_failure(tmp_path):
+    """get_dataset_data returns error on sup failure."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="timeout")
+        result = get_dataset_data(cfg, dataset_id=42)
+
+    assert result.success is False
+    assert "timeout" in result.error

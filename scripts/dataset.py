@@ -188,3 +188,33 @@ def get_dataset_sql(
 
     sql = data.get("result", "") if isinstance(data, dict) else ""
     return DatasetSQL(success=True, sql=sql)
+
+
+def get_dataset_data(
+    config: ToolkitConfig,
+    dataset_id: int,
+    limit: Optional[int] = None,
+) -> DatasetData:
+    """Get sample data from a dataset. Uses sup dataset data --json."""
+    args = ["dataset", "data", str(dataset_id), "--json"]
+    if limit is not None:
+        args.extend(["--limit", str(limit)])
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return DatasetData(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return DatasetData(success=False, error=f"JSON parse error: {e}")
+
+    if not isinstance(data, dict):
+        return DatasetData(success=False, error="Unexpected response format")
+
+    return DatasetData(
+        success=True,
+        columns=data.get("columns", []),
+        rows=data.get("data", []),
+        row_count=data.get("rowcount", 0),
+    )
