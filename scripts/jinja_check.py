@@ -159,6 +159,7 @@ def scan_yaml_jinja(config: ToolkitConfig) -> JinjaScanResult:
 
     yaml_files = sorted(scan_dir.rglob("*.yaml"))
     result.files_scanned = len(yaml_files)
+    seen_jinja_files: set = set()
 
     for yaml_path in yaml_files:
         try:
@@ -180,11 +181,19 @@ def scan_yaml_jinja(config: ToolkitConfig) -> JinjaScanResult:
             finding.field_name = field_name
 
             if finding.expressions:
-                result.files_with_jinja += 1
+                if str(yaml_path) not in seen_jinja_files:
+                    result.files_with_jinja += 1
+                    seen_jinja_files.add(str(yaml_path))
                 result.total_expressions += len(finding.expressions)
                 result.findings.append(finding)
+            elif not finding.valid:
+                # Broken Jinja with no extractable expressions (e.g. "{{ broken")
+                if str(yaml_path) not in seen_jinja_files:
+                    result.files_with_jinja += 1
+                    seen_jinja_files.add(str(yaml_path))
+                result.findings.append(finding)
 
-            if not finding.valid:
-                result.findings.append(finding) if finding not in result.findings else None
+            if not finding.valid and finding not in result.findings:
+                result.findings.append(finding)
 
     return result

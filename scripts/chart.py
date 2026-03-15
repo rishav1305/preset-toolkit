@@ -159,6 +159,9 @@ def get_chart_info(
     except (json.JSONDecodeError, ValueError) as e:
         return ChartInfo(success=False, error=f"JSON parse error: {e}")
 
+    if not isinstance(data, dict):
+        return ChartInfo(success=False, error="Unexpected response format")
+
     return ChartInfo(
         success=True,
         id=data.get("id", 0),
@@ -187,10 +190,8 @@ def get_chart_sql(
     except (json.JSONDecodeError, ValueError) as e:
         return ChartSQL(success=False, error=f"JSON parse error: {e}")
 
-    return ChartSQL(
-        success=True,
-        sql=data.get("result", ""),
-    )
+    sql = data.get("result", "") if isinstance(data, dict) else ""
+    return ChartSQL(success=True, sql=sql)
 
 
 def get_chart_data(
@@ -211,6 +212,9 @@ def get_chart_data(
         data = json.loads(r.stdout)
     except (json.JSONDecodeError, ValueError) as e:
         return ChartData(success=False, error=f"JSON parse error: {e}")
+
+    if not isinstance(data, dict):
+        return ChartData(success=False, error="Unexpected response format")
 
     return ChartData(
         success=True,
@@ -266,6 +270,9 @@ def pull_charts(
     except (json.JSONDecodeError, ValueError) as e:
         return ChartPullResult(success=False, error=f"JSON parse error: {e}")
 
+    if not isinstance(data, dict):
+        return ChartPullResult(success=True)
+
     return ChartPullResult(
         success=True,
         charts_pulled=data.get("charts_pulled", 0),
@@ -303,6 +310,9 @@ def push_charts(
         data = json.loads(r.stdout)
     except (json.JSONDecodeError, ValueError) as e:
         return ChartPushResult(success=False, error=f"JSON parse error: {e}")
+
+    if not isinstance(data, dict):
+        return ChartPushResult(success=True)
 
     return ChartPushResult(
         success=True,

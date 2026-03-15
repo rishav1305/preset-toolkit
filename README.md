@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet?style=for-the-badge" alt="Claude Code Plugin" />
   <img src="https://img.shields.io/badge/Preset-Dashboard_Toolkit-orange?style=for-the-badge" alt="Preset Dashboard Toolkit" />
   <img src="https://img.shields.io/badge/version-0.11.0-green?style=for-the-badge" alt="Version 0.11.0" />
-  <img src="https://img.shields.io/badge/tests-297_passing-brightgreen?style=for-the-badge" alt="297 Tests Passing" />
+  <img src="https://img.shields.io/badge/tests-391_passing-brightgreen?style=for-the-badge" alt="391 Tests Passing" />
   <img src="https://img.shields.io/badge/license-BUSL_1.1-blue?style=for-the-badge" alt="License" />
 </p>
 
@@ -333,7 +333,7 @@ preset-toolkit/
 │   ├── logger.py             Structured logging + secret sanitization
 │   └── bootstrap.sh          Venv + dependency installer
 ├── templates/                Project scaffolding files
-└── tests/                    297 tests (unit + integration)
+└── tests/                    391 tests (unit + integration + E2E)
 ```
 
 ### Dependencies
@@ -360,7 +360,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-All 297 tests pass in ~8 seconds.
+All 391 tests pass in ~4 seconds.
 
 ### Design Principles
 
