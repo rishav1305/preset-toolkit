@@ -165,6 +165,21 @@ def test_list_datasets_with_filters(tmp_path):
     assert "5" in args
 
 
+def test_list_datasets_with_order_and_modified_filters(tmp_path):
+    """list_datasets passes --order, --desc, and --modified-after flags."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="[]", stderr="")
+        list_datasets(cfg, order="changed_on_utc", desc=True, modified_after="2026-01-01")
+
+    args = mock_sup.call_args[0][0]
+    assert "--order" in args
+    assert "changed_on_utc" in args
+    assert "--desc" in args
+    assert "--modified-after" in args
+    assert "2026-01-01" in args
+
+
 def test_list_datasets_empty(tmp_path):
     """list_datasets handles empty result."""
     cfg = _make_dataset_config(tmp_path)
@@ -361,6 +376,27 @@ def test_pull_datasets_with_filters(tmp_path):
     assert "--no-overwrite" in args
 
 
+def test_pull_datasets_with_name_and_extra_filters(tmp_path):
+    """pull_datasets passes --name, --modified-after, --limit, and --assets-folder flags."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout='{"datasets_pulled":0,"files":[]}', stderr="")
+        pull_datasets(
+            cfg, name="orders", modified_after="2026-01-01",
+            limit=5, assets_folder="/tmp/assets",
+        )
+
+    args = mock_sup.call_args[0][0]
+    assert "--name" in args
+    assert "orders" in args
+    assert "--modified-after" in args
+    assert "2026-01-01" in args
+    assert "--limit" in args
+    assert "5" in args
+    assert "--assets-folder" in args
+    assert "/tmp/assets" in args
+
+
 def test_pull_datasets_failure(tmp_path):
     """pull_datasets returns error on sup failure."""
     cfg = _make_dataset_config(tmp_path)
@@ -399,6 +435,18 @@ def test_push_datasets_with_flags(tmp_path):
     assert "--continue-on-error" in args
     assert "--load-env" in args
     assert "--force" not in args
+
+
+def test_push_datasets_with_assets_folder(tmp_path):
+    """push_datasets passes --assets-folder flag."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout='{"datasets_pushed":0,"errors":[]}', stderr="")
+        push_datasets(cfg, assets_folder="/tmp/assets")
+
+    args = mock_sup.call_args[0][0]
+    assert "--assets-folder" in args
+    assert "/tmp/assets" in args
 
 
 def test_push_datasets_failure(tmp_path):

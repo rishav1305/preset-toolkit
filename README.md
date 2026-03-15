@@ -2,7 +2,7 @@
   <img src="https://img.shields.io/badge/Claude_Code-Plugin-blueviolet?style=for-the-badge" alt="Claude Code Plugin" />
   <img src="https://img.shields.io/badge/Preset-Dashboard_Toolkit-orange?style=for-the-badge" alt="Preset Dashboard Toolkit" />
   <img src="https://img.shields.io/badge/version-0.8.0-green?style=for-the-badge" alt="Version 0.8.0" />
-  <img src="https://img.shields.io/badge/tests-193_passing-brightgreen?style=for-the-badge" alt="193 Tests Passing" />
+  <img src="https://img.shields.io/badge/tests-196_passing-brightgreen?style=for-the-badge" alt="196 Tests Passing" />
   <img src="https://img.shields.io/badge/license-BUSL_1.1-blue?style=for-the-badge" alt="License" />
 </p>
 
@@ -351,7 +351,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-All 193 tests pass in ~9 seconds.
+All 196 tests pass in ~9 seconds.
 
 ### Design Principles
 
