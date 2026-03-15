@@ -9,6 +9,10 @@ from scripts.chart import (
     ChartListResult, ChartInfo, ChartSQL, ChartData,
     ChartPullResult, ChartPushResult,
 )
+from scripts.dataset import (
+    DatasetListResult, DatasetInfo, DatasetSQL, DatasetData,
+    DatasetPullResult, DatasetPushResult,
+)
 from scripts.sync import ChangeAction, DryRunResult, SyncResult
 
 # ANSI color codes
@@ -161,6 +165,92 @@ def _format_table_chart_push(result: ChartPushResult) -> str:
     return "\n".join(lines)
 
 
+def _format_table_dataset_list(result: DatasetListResult) -> str:
+    """Render DatasetListResult as a table."""
+    lines = []
+    if result.datasets:
+        lines.append(f"{'ID':<8} {'Name':<30} {'Database':<20} {'Schema':<15} Modified")
+        lines.append("-" * 100)
+        for d in result.datasets:
+            lines.append(f"{d.id:<8} {d.name:<30} {d.database:<20} {d.schema:<15} {d.modified}")
+        lines.append("")
+        lines.append(f"{result.total} dataset(s) found.")
+    else:
+        lines.append("No datasets found.")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_dataset_info(result: DatasetInfo) -> str:
+    """Render DatasetInfo as key-value pairs."""
+    lines = [
+        f"ID:       {result.id}",
+        f"Name:     {result.name}",
+        f"Database: {result.database}",
+        f"Schema:   {result.schema}",
+    ]
+    if result.sql:
+        lines.append(f"SQL:      {result.sql}")
+    if result.columns:
+        lines.append(f"Columns:  {len(result.columns)}")
+    if result.metrics:
+        lines.append(f"Metrics:  {len(result.metrics)}")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_dataset_sql(result: DatasetSQL) -> str:
+    """Render DatasetSQL as a SQL block."""
+    if result.error:
+        return f"ERROR: {result.error}"
+    return result.sql
+
+
+def _format_table_dataset_data(result: DatasetData) -> str:
+    """Render DatasetData as a columnar table."""
+    lines = []
+    if result.columns:
+        header = " | ".join(f"{col:<15}" for col in result.columns)
+        lines.append(header)
+        lines.append("-" * len(header))
+        for row in result.rows:
+            line = " | ".join(f"{str(row.get(col, '')):<15}" for col in result.columns)
+            lines.append(line)
+        lines.append("")
+        lines.append(f"{result.row_count} row(s) returned.")
+    else:
+        lines.append("No data returned.")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_dataset_pull(result: DatasetPullResult) -> str:
+    """Render DatasetPullResult as a summary."""
+    lines = [f"Datasets pulled: {result.datasets_pulled}"]
+    if result.files:
+        lines.append("Files:")
+        for f in result.files:
+            lines.append(f"  - {f}")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
+def _format_table_dataset_push(result: DatasetPushResult) -> str:
+    """Render DatasetPushResult as a summary."""
+    lines = [f"Datasets pushed: {result.datasets_pushed}"]
+    if result.errors:
+        lines.append("Errors:")
+        for e in result.errors:
+            lines.append(f"  - {e}")
+    if result.error:
+        lines.append(f"ERROR: {result.error}")
+    return "\n".join(lines)
+
+
 def _coerce_enums(obj: Any) -> Any:
     """Recursively convert Enum instances to their plain string/value form.
 
@@ -223,6 +313,18 @@ def format_output(data: Any, fmt: str = "table") -> str:
             return _format_table_chart_pull(data)
         elif isinstance(data, ChartPushResult):
             return _format_table_chart_push(data)
+        elif isinstance(data, DatasetListResult):
+            return _format_table_dataset_list(data)
+        elif isinstance(data, DatasetInfo):
+            return _format_table_dataset_info(data)
+        elif isinstance(data, DatasetSQL):
+            return _format_table_dataset_sql(data)
+        elif isinstance(data, DatasetData):
+            return _format_table_dataset_data(data)
+        elif isinstance(data, DatasetPullResult):
+            return _format_table_dataset_pull(data)
+        elif isinstance(data, DatasetPushResult):
+            return _format_table_dataset_push(data)
         else:
             return str(dataclasses.asdict(data))
     elif fmt == "json":
