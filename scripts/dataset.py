@@ -136,3 +136,35 @@ def list_datasets(
         datasets = []
 
     return DatasetListResult(success=True, datasets=datasets, total=len(datasets))
+
+
+def get_dataset_info(
+    config: ToolkitConfig,
+    dataset_id: int,
+) -> DatasetInfo:
+    """Get detailed metadata for a single dataset. Uses sup dataset info --json."""
+    args = ["dataset", "info", str(dataset_id), "--json"]
+
+    r = run_sup(args)
+    if r.returncode != 0:
+        return DatasetInfo(success=False, error=r.stderr.strip())
+
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return DatasetInfo(success=False, error=f"JSON parse error: {e}")
+
+    if not isinstance(data, dict):
+        return DatasetInfo(success=False, error="Unexpected response format")
+
+    return DatasetInfo(
+        success=True,
+        id=data.get("id", 0),
+        name=data.get("table_name", ""),
+        database=data.get("database_name", ""),
+        schema=data.get("schema", ""),
+        sql=data.get("sql", ""),
+        columns=data.get("columns", []),
+        metrics=data.get("metrics", []),
+        raw=data,
+    )

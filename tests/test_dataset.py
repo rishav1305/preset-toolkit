@@ -14,6 +14,7 @@ from scripts.dataset import (
     DatasetPullResult,
     DatasetPushResult,
     list_datasets,
+    get_dataset_info,
 )
 from scripts.config import ToolkitConfig
 
@@ -192,3 +193,42 @@ def test_list_datasets_malformed_json(tmp_path):
 
     assert result.success is False
     assert "parse" in result.error.lower() or "json" in result.error.lower()
+
+
+# ── get_dataset_info ──────────────────────────────────────────────
+
+def test_get_dataset_info_success(tmp_path):
+    """get_dataset_info parses JSON into DatasetInfo."""
+    cfg = _make_dataset_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "id": 42, "table_name": "Main_Dataset", "database_name": "analytics_db",
+        "schema": "public", "sql": "SELECT * FROM orders",
+        "columns": [{"column_name": "id", "type": "INTEGER"}],
+        "metrics": [{"metric_name": "count", "expression": "COUNT(*)"}],
+        "extra_field": "preserved",
+    })
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = get_dataset_info(cfg, dataset_id=42)
+
+    assert result.success is True
+    assert result.id == 42
+    assert result.name == "Main_Dataset"
+    assert result.database == "analytics_db"
+    assert result.schema == "public"
+    assert result.sql == "SELECT * FROM orders"
+    assert len(result.columns) == 1
+    assert len(result.metrics) == 1
+    assert result.raw["extra_field"] == "preserved"
+    assert "42" in mock_sup.call_args[0][0]
+
+
+def test_get_dataset_info_failure(tmp_path):
+    """get_dataset_info returns error on sup failure."""
+    cfg = _make_dataset_config(tmp_path)
+    with patch("scripts.dataset.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="not found")
+        result = get_dataset_info(cfg, dataset_id=9999)
+
+    assert result.success is False
+    assert "not found" in result.error
