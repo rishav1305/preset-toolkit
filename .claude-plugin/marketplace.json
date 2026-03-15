@@ -9,7 +9,7 @@
       "name": "preset-toolkit",
       "source": "./",
       "description": "Dashboard management toolkit for Preset/Superset — sync, validate, push, screenshot, visual regression, ownership",
-      "version": "0.9.0"
+      "version": "0.10.0"
     }
   ]
 }
