@@ -26,8 +26,15 @@ Expose `sup sql` as a structured Python function with typed results, database ID
 One public function, one helper, and two dataclasses:
 
 ```python
+import json
 from typing import Optional, List
 from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
+
+from scripts.config import ToolkitConfig
+from scripts.sync import run_sup
 
 @dataclass
 class SqlResult:
@@ -41,9 +48,9 @@ class SqlResult:
 def resolve_database_id(config: ToolkitConfig) -> Optional[int]:
     """Scan sync folder's databases/ dir for the first database YAML and extract its ID.
 
-    Reads each YAML file in <sync_folder>/assets/databases/, looks for an 'id'
-    field, and returns the first one found. Returns None if no database files
-    exist or none contain an ID.
+    Reads each YAML file in <sync_folder>/assets/databases/ (sorted for
+    determinism), looks for a top-level 'id' field, and returns the first
+    one found. Returns None if no database files exist or none contain an ID.
     """
 
 def execute_sql(
@@ -53,6 +60,9 @@ def execute_sql(
     limit: Optional[int] = None,
 ) -> SqlResult:
     """Execute a SQL query via sup sql --json.
+
+    The query string is passed as a single list element to run_sup();
+    no shell quoting needed.
 
     If database_id is None, calls resolve_database_id() to auto-detect from
     the sync folder. If resolution also returns None, executes without
@@ -79,12 +89,23 @@ execute_sql(config, "SELECT * FROM orders", database_id=5, limit=100)
 
 ### 3. Database ID Auto-Resolution
 
-`resolve_database_id(config)` scans `<config.sync_folder>/assets/databases/` for YAML files. Each database YAML pulled by `sup sync` contains an `id` field. The helper reads the first file found and extracts the ID.
+`resolve_database_id(config)` scans `<config.sync_folder>/assets/databases/` for YAML files. Each database YAML pulled by `sup sync` has this structure:
+
+```yaml
+# Example: <sync_folder>/assets/databases/analytics_db.yaml
+id: 5
+database_name: analytics_db
+sqlalchemy_uri: postgresql://...
+```
+
+The helper reads `data.get("id")` from the top-level YAML dict and returns the first valid ID found.
 
 **Edge cases:**
 - No databases/ directory → return None
 - Empty directory → return None
 - YAML without `id` field → skip, try next file
+- Malformed YAML (parse error) → skip, try next file
+- Unreadable file (permission error) → skip, try next file
 - Multiple databases → return the first one found (deterministic via sorted glob)
 
 When `resolve_database_id()` returns None, `execute_sql()` omits `--database-id` entirely, letting sup use its own default.
@@ -104,7 +125,9 @@ Same as chart/dataset operations. `sup sql --json` returns structured output.
 
 Extend `scripts/formatter.py` to handle `SqlResult`:
 
-- `SqlResult` table format: columnar data table with column headers, separator, rows, and row count footer — same layout as `_format_table_chart_data` and `_format_table_dataset_data`
+- Import `SqlResult` from `scripts.sql`
+- Add `_format_table_sql_result(result: SqlResult) -> str`: columnar data table with column headers, separator, rows, and row count footer — same layout as `_format_table_chart_data` and `_format_table_dataset_data`
+- Add `isinstance(data, SqlResult)` branch to `format_output()` dispatch chain
 - Error display: if `success=False`, show error message
 - Empty result: show "No rows returned."
 
