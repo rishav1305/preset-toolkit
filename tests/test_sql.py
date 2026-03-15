@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 import yaml
 
-from scripts.sql import SqlResult, resolve_database_id
+from scripts.sql import SqlResult, resolve_database_id, execute_sql
 from scripts.config import ToolkitConfig
 
 
@@ -113,3 +113,109 @@ def test_resolve_database_id_sorted_determinism(tmp_path):
 
     result = resolve_database_id(cfg)
     assert result == 100
+
+
+# ── Task 3: execute_sql ───────────────────────────────────────────
+
+def test_execute_sql_success(tmp_path):
+    """execute_sql parses JSON output into SqlResult on success."""
+    cfg = _make_sql_config(tmp_path)
+    sup_json = json_mod.dumps({
+        "columns": ["date", "revenue"],
+        "data": [
+            {"date": "2026-01", "revenue": 100},
+            {"date": "2026-02", "revenue": 200},
+        ],
+        "rowcount": 2,
+    })
+    with patch("scripts.sql.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        result = execute_sql(cfg, "SELECT date, revenue FROM sales")
+
+    assert result.success is True
+    assert result.columns == ["date", "revenue"]
+    assert len(result.rows) == 2
+    assert result.rows[0]["revenue"] == 100
+    assert result.row_count == 2
+
+    args = mock_sup.call_args[0][0]
+    assert args[0] == "sql"
+    assert "SELECT date, revenue FROM sales" in args
+    assert "--json" in args
+
+
+def test_execute_sql_with_database_id(tmp_path):
+    """execute_sql passes --database-id when explicitly provided."""
+    cfg = _make_sql_config(tmp_path)
+    sup_json = json_mod.dumps({"columns": [], "data": [], "rowcount": 0})
+    with patch("scripts.sql.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        execute_sql(cfg, "SELECT 1", database_id=42)
+
+    args = mock_sup.call_args[0][0]
+    assert "--database-id" in args
+    assert "42" in args
+
+
+def test_execute_sql_with_limit(tmp_path):
+    """execute_sql passes --limit flag when limit is provided."""
+    cfg = _make_sql_config(tmp_path)
+    sup_json = json_mod.dumps({"columns": ["x"], "data": [{"x": 1}], "rowcount": 1})
+    with patch("scripts.sql.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        execute_sql(cfg, "SELECT 1", limit=100)
+
+    args = mock_sup.call_args[0][0]
+    assert "--limit" in args
+    assert "100" in args
+
+
+def test_execute_sql_auto_resolves_database_id(tmp_path):
+    """execute_sql auto-resolves database_id from YAML when not provided."""
+    cfg = _make_sql_config(tmp_path)
+    db_dir = tmp_path / "sync" / "assets" / "databases"
+    db_dir.mkdir(parents=True)
+    (db_dir / "main.yaml").write_text(yaml.safe_dump({"id": 77, "name": "main_db"}))
+
+    sup_json = json_mod.dumps({"columns": [], "data": [], "rowcount": 0})
+    with patch("scripts.sql.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        execute_sql(cfg, "SELECT 1")
+
+    args = mock_sup.call_args[0][0]
+    assert "--database-id" in args
+    assert "77" in args
+
+
+def test_execute_sql_no_database_id_available(tmp_path):
+    """execute_sql omits --database-id when none is provided and none can be resolved."""
+    cfg = _make_sql_config(tmp_path)
+    sup_json = json_mod.dumps({"columns": [], "data": [], "rowcount": 0})
+    with patch("scripts.sql.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout=sup_json, stderr="")
+        execute_sql(cfg, "SELECT 1")
+
+    args = mock_sup.call_args[0][0]
+    assert "--database-id" not in args
+
+
+def test_execute_sql_sup_failure(tmp_path):
+    """execute_sql returns error result when sup exits non-zero."""
+    cfg = _make_sql_config(tmp_path)
+    with patch("scripts.sql.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=1, stdout="", stderr="auth error")
+        result = execute_sql(cfg, "SELECT 1")
+
+    assert result.success is False
+    assert "auth error" in result.error
+
+
+def test_execute_sql_malformed_json(tmp_path):
+    """execute_sql handles malformed JSON gracefully."""
+    cfg = _make_sql_config(tmp_path)
+    with patch("scripts.sql.run_sup") as mock_sup:
+        mock_sup.return_value = MagicMock(returncode=0, stdout="not json at all", stderr="")
+        result = execute_sql(cfg, "SELECT 1")
+
+    assert result.success is False
+    assert "parse" in result.error.lower() or "json" in result.error.lower()

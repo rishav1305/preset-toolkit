@@ -37,3 +37,31 @@ def resolve_database_id(config: ToolkitConfig) -> Optional[int]:
         if isinstance(data, dict) and "id" in data:
             return int(data["id"])
     return None
+
+
+def execute_sql(
+    config: ToolkitConfig,
+    query: str,
+    database_id: Optional[int] = None,
+    limit: Optional[int] = None,
+) -> SqlResult:
+    """Execute a SQL query against a Preset database. Uses sup sql --json."""
+    args = ["sql", query, "--json"]
+    resolved_db_id = database_id if database_id is not None else resolve_database_id(config)
+    if resolved_db_id is not None:
+        args.extend(["--database-id", str(resolved_db_id)])
+    if limit is not None:
+        args.extend(["--limit", str(limit)])
+    r = run_sup(args)
+    if r.returncode != 0:
+        return SqlResult(success=False, error=r.stderr.strip())
+    try:
+        data = json.loads(r.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return SqlResult(success=False, error=f"JSON parse error: {e}")
+    return SqlResult(
+        success=True,
+        columns=data.get("columns", []),
+        rows=data.get("data", []),
+        row_count=data.get("rowcount", 0),
+    )
